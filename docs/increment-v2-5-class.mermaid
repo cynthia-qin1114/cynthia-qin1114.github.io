@@ -1,0 +1,151 @@
+classDiagram
+    class DcaPlanType {
+        <<enum>>
+        SMART
+        FIXED
+    }
+    class DcaFrequency {
+        <<enum>>
+        DAILY
+        WEEKLY
+        MONTHLY
+    }
+    class DcaDeductionMode {
+        <<enum>>
+        AUTO
+        MANUAL_CONFIRM
+    }
+
+    class DcaPlan {
+        +string id PK
+        +DcaPlanType type
+        +string accountId
+        +string targetInvestmentId
+        +string fundCode
+        +string fundName
+        +number amount
+        +DcaFrequency frequency
+        +string nextDeductionDate
+        +boolean enabled
+        +DcaDeductionMode deductionMode
+        +string benchmarkIndex
+        +string benchmarkMa
+        +number investedPeriods
+        +string deductionRule
+        +string createdAt
+        +string updatedAt
+    }
+
+    class DcaRecord {
+        +string id PK
+        +string planId FK
+        +string accountId
+        +string targetInvestmentId
+        +string fundCode
+        +string fundName
+        +number amount
+        +string deductedAt
+        +string basisDate
+    }
+
+    class Investment {
+        +HoldingType holdingType
+        +string accountId
+        +string fundCode
+        +string fundName
+        +number marketValue
+        +number costAmount
+    }
+
+    class Account {
+        +string id PK
+        +number balance
+    }
+
+    class DcaPlanRepository {
+        <<repository>>
+        +getAllPlans() DcaPlan[]
+        +getEnabledDuePlans(today) DcaPlan[]
+        +createPlan(dto) DcaPlan
+        +updatePlan(id, dto) void
+        +deletePlan(id) void
+        +createRecord(dto) DcaRecord
+        +getRecordsByPlan(planId) DcaRecord[]
+    }
+
+    class InvestmentRepository {
+        <<repository>>
+        +applyDcaContribution(id, amount) void
+    }
+
+    class AccountRepository {
+        <<repository>>
+        +recalcBalanceFromHoldings(accountId) void
+    }
+
+    class DcaService {
+        +savePlan(dto) DcaPlan
+        +runDueDeductions(today) DcaDeductionResult[]
+        -rollNextDeductionDate(date, freq) string
+    }
+
+    class UseDcaStore {
+        +DcaPlan[] plans
+        +DcaRecord[] records
+        +DcaDeductionResult[] lastDeductions
+        +fetchPlans() void
+        +createPlan(dto) void
+        +updatePlan(id, dto) void
+        +deletePlan(id) void
+        +runDueDeductions() void
+    }
+
+    class DcaOcrParser {
+        <<module>>
+        +parseDcaOcrText(text) DcaOcrParseResult
+        +toDcaPrefill(result) Partial~CreateDcaPlanDTO~
+    }
+
+    class UseDcaScheduler {
+        +useDcaScheduler() void
+    }
+
+    class DcaOverviewPage
+    class DcaPlanGroup
+    class DcaPlanCard
+    class DcaSmartEntry
+    class DcaFixedEntry
+    class DcaOcrButton
+
+    class DcaOcrParseResult {
+        +number baseAmount
+        +string benchmarkIndex
+        +string benchmarkMa
+        +string deductionInterval
+        +string nextDeductionDate
+        +number investedPeriods
+        +string raw
+    }
+
+    DcaPlan ||--o{ DcaRecord : "has"
+    DcaPlan }o--|| Investment : "targetInvestmentId"
+    DcaPlan }o--|| Account : "accountId"
+    DcaRecord }o--|| Investment : "targetInvestmentId"
+    DcaRecord }o--|| Account : "accountId"
+
+    DcaPlanRepository ..> DcaPlan : CRUD
+    DcaPlanRepository ..> DcaRecord : CRUD
+    DcaService ..> DcaPlanRepository : uses
+    DcaService ..> InvestmentRepository : applyDcaContribution
+    InvestmentRepository ..> AccountRepository : recalcBalanceFromHoldings
+    UseDcaStore ..> DcaService : runDueDeductions / savePlan
+    UseDcaScheduler ..> UseDcaStore : runDueDeductions
+    DcaOcrParser ..> DcaOcrParseResult : produces
+    DcaOcrButton ..> DcaOcrParser : parseDcaOcrText
+    DcaSmartEntry ..> DcaOcrButton : OCR upload
+    DcaSmartEntry ..> UseDcaStore : createPlan
+    DcaFixedEntry ..> UseDcaStore : createPlan
+    DcaOverviewPage ..> DcaPlanGroup : render groups
+    DcaPlanGroup ..> DcaPlanCard : render cards
+    DcaOverviewPage ..> DcaSmartEntry : new SMART
+    DcaOverviewPage ..> DcaFixedEntry : new FIXED

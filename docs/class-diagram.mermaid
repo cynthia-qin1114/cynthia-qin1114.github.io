@@ -1,0 +1,138 @@
+classDiagram
+    %% ========== 枚举 ==========
+    class HoldingType {
+        <<enumeration>>
+        FUND
+        WEALTH
+        CASH
+        GOLD
+    }
+    class PlanType {
+        <<enumeration>>
+        SMART
+        FIXED
+    }
+    class DeductCycle {
+        <<enumeration>>
+        DAILY
+        WEEKLY
+        MONTHLY
+    }
+
+    %% ========== 数据模型 ==========
+    class Investment {
+        +string id
+        +HoldingType holdingType
+        +string accountId
+        +string institution
+        +string fundCode
+        +string fundName
+        +number shares  %% GOLD:克重
+        +number costPrice  %% GOLD:成本金价
+        +number currentPrice  %% GOLD:最新金价
+        +number costAmount
+        +number marketValue  %% GOLD:克重×金价
+        +number profitLoss
+        +number dailyProfit
+        +number holdingProfit
+        +number goldPricePerGram
+        +string goldPriceSyncAt
+        +string buyDate
+        +string lastSyncAt
+    }
+    class InvestmentPlan {
+        +string id
+        +PlanType planType
+        +string accountId
+        +string planName
+        +string fundCode
+        +number amount
+        +string benchmarkIndex
+        +string benchmarkMa
+        +DeductCycle deductCycle
+        +string nextDeductDate
+        +number investedPeriods
+        +string note
+        +string lastSyncAt
+    }
+    class Account {
+        +string id
+        +string name
+        +number balance
+    }
+    class GoldPriceData {
+        +number pricePerGram
+        +string source
+        +string syncAt
+    }
+
+    %% ========== 服务/数据访问 ==========
+    class goldPriceService {
+        +getGoldPricePerGram() GoldPriceData
+        -fetchSpotGold()
+        -ozToGram(usdPerOz, rate) number
+        -parseResponse(text) number
+    }
+    class investmentService {
+        +calcGoldMetrics(dto)
+        +refreshGoldPrices(investments) Investment[]
+        +refreshAllPrices(investments) Investment[]
+        +getSummary() InvestmentSummary
+    }
+    class investmentRepository {
+        +create(dto) Investment
+        +update(id, dto)
+        +updatePrice(id, price)
+        +getSummary() InvestmentSummary
+        +getByAccountId(accountId) Investment[]
+    }
+    class accountRepository {
+        +getAccountTotalAmount(accountId) number
+        +getSortedAccounts(order) Account[]
+        +recalcBalanceFromHoldings(accountId)
+    }
+    class investmentPlanRepository {
+        +getAll() InvestmentPlan[]
+        +create(dto) InvestmentPlan
+        +update(id, dto)
+        +delete(id)
+    }
+    class wealthOcrParser {
+        <<module>>
+        +parseCmbOverviewOcrText(text)
+        +parseCmbGoldOcrText(text)
+        +parseSmartPlanOcrText(text)
+        +toWealthPrefills(r, accountId)
+    }
+
+    %% ========== Store / Hooks ==========
+    class useInvestmentStore {
+        +investments
+        +summary
+        +refreshPrices()
+        +batchUpsertWealth(dtos)
+    }
+    class useInvestmentPlanStore {
+        +plans
+        +fetchPlans()
+        +createPlan(dto)
+        +updatePlan(id, dto)
+        +deletePlan(id)
+    }
+
+    %% ========== 关系 ==========
+    Investment --> HoldingType
+    InvestmentPlan --> PlanType
+    InvestmentPlan --> DeductCycle
+    Account "1" o-- "*" Investment : accountId
+    Account "1" o-- "*" InvestmentPlan : accountId
+    goldPriceService ..> GoldPriceData : returns
+    investmentService ..> goldPriceService : uses
+    investmentService ..> investmentRepository : uses
+    investmentRepository ..> accountRepository : recalc
+    investmentRepository ..> investmentService : calc
+    useInvestmentStore ..> investmentRepository : uses
+    useInvestmentStore ..> investmentService : uses
+    useInvestmentPlanStore ..> investmentPlanRepository : uses
+    wealthOcrParser ..> Investment : prefill DTO
+    wealthOcrParser ..> InvestmentPlan : smart plan prefill

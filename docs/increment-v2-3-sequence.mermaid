@@ -1,0 +1,33 @@
+sequenceDiagram
+    participant Page as InvestPage
+    participant Store as useInvestmentStore
+    participant Repo as investmentRepository
+    participant List as InvestmentList
+    participant CG as CategoryGroup
+    participant Card as InvestmentCard
+
+    Page->>Store: fetchInvestments()
+    Store->>Repo: getAll()  // 返回含 CASH 的全部持仓
+    Store->>Repo: getSummary()  // 跳过 CASH，不含现金
+    Repo-->>Store: investments(含CASH), summary(不含CASH)
+    Store-->>Page: investments, summary
+    Page->>Page: 顶部「投资市值」卡 = summary.totalMarketValue (不含CASH)
+    Page->>List: <InvestmentList investments groupByCategory />
+
+    List->>List: categoryGroups = CATEGORY_GROUP_ORDER
+    Note over List: .map(type => filter(holdingType==type))
+    Note over List: .sort((b.marketValue)-(a.marketValue))
+    Note over List: .filter(items.length>0)  // 空组隐藏
+
+    loop 每个非空组（基金/理财/黄金/现金）
+        List->>CG: renderCategoryGroup(type, title, items)
+        CG->>CG: 组头: 标题 + 条数Chip + ΣmarketValue小计
+        Note over CG: CASH组标题=「现金（活期）」，视觉淡灰
+        loop 组内每条（marketValue降序）
+            CG->>Card: renderCard(investment)
+            Card-->>CG: 卡片（CASH走简化淡灰视图）
+        end
+    end
+
+    Note over Page,Store: 基金+理财+黄金 三组小计之和 = 顶部投资市值
+    Note over Page,Store: 现金组小计独立，不计入投资市值

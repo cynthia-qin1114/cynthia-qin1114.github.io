@@ -1,0 +1,62 @@
+classDiagram
+    class HoldingType {
+        <<enum>>
+        FUND
+        WEALTH
+        CASH
+        GOLD
+    }
+
+    class Investment {
+        +HoldingType holdingType
+        +number marketValue
+        +string fundName
+    }
+
+    class InvestmentListProps {
+        +Investment[] investments
+        +Account[] accounts
+        +boolean groupByAccount
+        +boolean groupByCategory
+        +onEdit(inv)
+        +onDelete(inv)
+        +onRefreshPrice(inv)
+    }
+
+    class InvestmentList {
+        -Investment[] visible
+        -CategoryGroup[] categoryGroups
+        +renderCard(inv) ReactNode
+        +renderGrouped() ReactNode
+        +renderCategoryGroup(g) ReactNode
+    }
+
+    class CategoryGroup {
+        +HoldingType type
+        +string title
+        +Investment[] items
+        -boolean expanded
+        +toggle()
+        +renderHeader()
+        +renderItems()
+    }
+
+    class InvestmentCard {
+        +render()
+        -isWealth: boolean
+        -isCash: boolean
+    }
+
+    class Constants {
+        <<module>>
+        +CATEGORY_GROUP_ORDER: HoldingType[]
+        +HoldingTypeLabels: Record~HoldingType,string~
+        +CATEGORY_COLORS: Partial~Record~HoldingType,string~~
+    }
+
+    InvestmentListProps ..> Investment : receives
+    InvestmentList ..> HoldingType : groups by
+    InvestmentList ..> Constants : uses CATEGORY_GROUP_ORDER / HoldingTypeLabels
+    InvestmentList --> CategoryGroup : renders (groupByCategory)
+    InvestmentList --> InvestmentCard : renders (flat/account)
+    CategoryGroup --> InvestmentCard : renders (items)
