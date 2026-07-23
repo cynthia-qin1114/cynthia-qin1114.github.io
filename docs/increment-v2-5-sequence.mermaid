@@ -1,0 +1,41 @@
+sequenceDiagram
+    autonumber
+    participant App as App(挂载)
+    participant Sched as useDcaScheduler
+    participant Store as useDcaStore
+    participant Svc as dcaService
+    participant Repo as dcaRepository
+    participant Inv as investmentRepository
+    participant Acc as accountRepository
+    participant Plan as DcaPlan(DB)
+    participant Hold as FUND持仓(DB)
+    participant Rec as DcaRecord(DB)
+
+    App->>Sched: 挂载(启动) + 监听 visibilitychange/focus(前台)
+    Sched->>Store: runDueDeductions()
+    Store->>Svc: runDueDeductions(today)
+    Svc->>Repo: getEnabledDuePlans(today)
+    Note over Svc,Repo: 条件 enabled && nextDeductionDate <= today
+    Repo-->>Svc: DcaPlan[] (到期计划)
+
+    loop 每个到期计划(仅补记一次)
+        Svc->>Plan: 读取 amount / targetInvestmentId / fundCode / frequency
+        alt deductionMode == MANUAL_CONFIRM
+            Svc-->>Store: 仅记入"待确认"列表(不写记录)
+        else AUTO(默认)
+            Svc->>Rec: createRecord(planId, accountId, targetInvestmentId, amount, basisDate=nextDeductionDate)
+            Svc->>Inv: applyDcaContribution(targetId, amount)
+            Note over Inv: marketValue += amount; costAmount += amount; holdingProfit 口径不变
+            Inv->>Acc: recalcBalanceFromHoldings(accountId)
+            Note over Acc: balance = Σ holdings.marketValue (严禁 balance 与持仓相加)
+            Svc->>Svc: rollNextDeductionDate(nextDeductionDate, frequency) → 下一未逾期日
+            Svc->>Plan: updatePlan(nextDeductionDate=rolled, investedPeriods+1)
+            Svc-->>Store: 收集 DcaDeductionResult(金额/标的)
+        end
+    end
+
+    Svc-->>Store: DcaDeductionResult[]
+    Store->>Store: 写入 lastDeductions; 刷新 plans/records
+    Store->>Store: 联动 useInvestmentStore.fetchInvestments() + useAccountStore.fetchAccounts()
+    Store-->>App: 触发提醒
+    App->>App: 渲染 Snackbar「X基金 定投 ¥amount 已记录」

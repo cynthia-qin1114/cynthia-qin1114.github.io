@@ -1,0 +1,54 @@
+sequenceDiagram
+    autonumber
+    %% ========== 流程①：招行「账户总览」页 OCR 录入 ==========
+    actor U as 用户
+    participant Btn as WealthSyncOcrButton
+    participant OCR as ocrService(Tesseract)
+    participant P as wealthOcrParser
+    participant Page as InvestPage
+    participant Dlg as WealthConfirmDialog
+    participant Store as useInvestmentStore
+    participant Repo as investmentRepository
+    participant AccRepo as accountRepository
+    participant DB as Dexie(IndexedDB)
+
+    U->>Btn: 选账户→选「理财/基金持仓」→拍照/选图
+    Btn->>OCR: recognize(file)
+    OCR-->>Btn: raw text
+    Btn->>P: 候选打分[overview, boc, cmb, alipay, generic]
+    P->>P: parseCmbOverviewOcrText 分组切段+打holdingType
+    P-->>Btn: 胜出结果(理财/基金/黄金条目)
+    Btn->>Page: onResult(prefills 含 GOLD/WEALTH/FUND)
+    Page->>Dlg: 打开确认(可编辑克重/市值/收益)
+    U->>Dlg: 核对/修正→确认
+    Dlg->>Store: batchUpsertWealth(dtos)
+    loop 每条 dto
+        Store->>Repo: upsertByAccountAndName(dto)
+        Repo->>DB: put/add investment(含 GOLD)
+        Repo->>AccRepo: recalcBalanceFromHoldings(accountId)
+        AccRepo->>DB: put account(balance=Σ持仓市值)
+    end
+    Store->>Repo: getAll + getSummary
+    Repo-->>Store: investments + summary
+    Store-->>Page: 刷新列表(按类别分组)
+
+    %% ========== 流程②：黄金金价近似实时同步 ==========
+    U->>Page: 点击刷新(净值/金价)
+    Page->>Store: refreshPrices()
+    Store->>Repo: refreshGoldPrices(investments)
+    participant GS as goldPriceService
+    participant Proxy as corsProxyService
+    Repo->>GS: getGoldPricePerGram()
+    GS->>Proxy: get(GOLD_API_URL)
+    Proxy-->>GS: raw(USD/oz 或 CNY/g)
+    GS->>GS: ozToGram / 直接取, 统一元/克(缓存5min)
+    GS-->>Repo: pricePerGram | null
+    alt 拉取成功
+        loop 每条 GOLD 持仓
+            Repo->>DB: 更新 currentPrice, marketValue=克重×金价
+            Repo->>AccRepo: recalcBalanceFromHoldings(accountId)
+        end
+    else 失败
+        Repo-->>Store: 保持上次市值(不清零)
+    end
+    Store-->>Page: 刷新分组列表 + 概览

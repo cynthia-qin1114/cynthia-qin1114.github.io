@@ -1,0 +1,14 @@
+graph TD
+    T01["T01 数据模型与存储基础设施<br/>types / database v4 / constants / investmentPlanRepository<br/>(P0)"]
+    T02["T02 黄金金价服务 + 计算 + 账户口径<br/>goldPriceService / investmentService / investmentRepository / accountRepository<br/>(P0)"]
+    T03["T03 招行总览/黄金/定投 OCR 解析器<br/>wealthOcrParser / WealthSyncOcrButton / ocr-cmb-gold.mjs<br/>(P0)"]
+    T04["T04 投资页分组展示 + 黄金持仓 UI<br/>InvestPage / InvestmentList / Form / Card / WealthConfirmDialog<br/>(P1)"]
+    T05["T05 账户管理页 + 基金定投计划模块<br/>useInvestmentPlanStore / AccountsPage / InvestmentPlanList/Form / SmartPlanOcrButton<br/>(P1)"]
+
+    T01 --> T02
+    T01 --> T03
+    T01 --> T05
+    T02 --> T04
+    T03 --> T04
+    T02 --> T05
+    T03 --> T05
