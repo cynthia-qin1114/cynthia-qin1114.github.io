@@ -17,11 +17,18 @@ import {
   parseAlipayFundOcrText,
   toWealthPrefills,
   toAssetDistributionPrefill,
+  parseAlipayTotalAssetsOcrText,
+  toAlipayTotalAssetsPrefills,
+  isAlipayTotalAssetsPage,
+  parseAlipayAdvancedFundOcrText,
+  isAlipayAdvancedFundPage,
 } from './wealthOcrParser';
 import {
   BOC_WEALTH,
   CMB_WEALTH_LIST,
   ALIPAY_FUND_LIST,
+  ALIPAY_TOTAL_ASSETS,
+  ALIPAY_ADVANCED_FUND_LIST,
 } from './__fixtures__/realOcrSamples';
 import { HoldingType } from '../types';
 
@@ -334,5 +341,119 @@ describe('parseAlipayFundOcrText — 支付宝基金列表（真实 OCR）', () 
     expect(r.items[4].dailyProfit).toBeCloseTo(7.46, 2);
     expect(r.items[4].holdingProfit).toBeCloseTo(-17.6, 2);
     expect(r.items[4].holdingProfitRate).toBeCloseTo(-8.8, 2);
+  });
+});
+
+// ==================== 支付宝「总资产」页（Bug 2） ====================
+
+describe('isAlipayTotalAssetsPage', () => {
+  it('识别支付宝总资产页（含「我的资产」）', () => {
+    expect(isAlipayTotalAssetsPage(ALIPAY_TOTAL_ASSETS)).toBe(true);
+  });
+  it('非支付宝总资产页返回 false', () => {
+    expect(isAlipayTotalAssetsPage(BOC_WEALTH)).toBe(false);
+    expect(isAlipayTotalAssetsPage(ALIPAY_FUND_LIST)).toBe(false);
+  });
+});
+
+describe('parseAlipayTotalAssetsOcrText — 支付宝总资产页（真实 OCR）', () => {
+  it('解析我的资产（= 三栏之和）', () => {
+    const r = parseAlipayTotalAssetsOcrText(ALIPAY_TOTAL_ASSETS);
+    expect(r.totalAssets).toBeCloseTo(55941.56, 2);
+  });
+
+  it('解析昨日收益', () => {
+    const r = parseAlipayTotalAssetsOcrText(ALIPAY_TOTAL_ASSETS);
+    expect(r.yesterdayProfit).toBeCloseTo(-55.89, 2);
+  });
+
+  it('解析三栏资产分类：活期/稳健/进阶', () => {
+    const r = parseAlipayTotalAssetsOcrText(ALIPAY_TOTAL_ASSETS);
+    expect(r.cashAmount).toBeCloseTo(1295.23, 2);
+    expect(r.cashDailyProfit).toBeCloseTo(0.03, 2);
+    expect(r.stableWealthAmount).toBeCloseTo(50008.02, 2);
+    expect(r.stableWealthDailyProfit).toBeCloseTo(4.01, 2);
+    expect(r.advancedWealthAmount).toBeCloseTo(4638.31, 2);
+    expect(r.advancedWealthDailyProfit).toBeCloseTo(-59.93, 2);
+  });
+
+  it('三栏金额之和 ≈ 我的资产（分类自洽）', () => {
+    const r = parseAlipayTotalAssetsOcrText(ALIPAY_TOTAL_ASSETS);
+    const sum = (r.cashAmount ?? 0) + (r.stableWealthAmount ?? 0) + (r.advancedWealthAmount ?? 0);
+    expect(sum).toBeCloseTo(55941.56, 2);
+  });
+
+  it('toAlipayTotalAssetsPrefills 生成 CASH + 2 WEALTH，注入 accountId', () => {
+    const r = parseAlipayTotalAssetsOcrText(ALIPAY_TOTAL_ASSETS);
+    const prefills = toAlipayTotalAssetsPrefills(r, 'acc_alipay');
+    expect(prefills.length).toBe(3);
+    expect(prefills[0].holdingType).toBe(HoldingType.CASH);
+    expect(prefills[0].accountId).toBe('acc_alipay');
+    expect(prefills[0].fundName).toBe('余额宝');
+    expect(prefills[0].marketValue).toBeCloseTo(1295.23, 2);
+    expect(prefills[1].holdingType).toBe(HoldingType.WEALTH);
+    expect(prefills[1].fundName).toBe('稳健理财');
+    expect(prefills[1].marketValue).toBeCloseTo(50008.02, 2);
+    expect(prefills[2].holdingType).toBe(HoldingType.WEALTH);
+    expect(prefills[2].fundName).toBe('进阶理财');
+    expect(prefills[2].marketValue).toBeCloseTo(4638.31, 2);
+  });
+});
+
+// ==================== 支付宝「进阶理财」基金列表（Bug 3） ====================
+
+describe('isAlipayAdvancedFundPage', () => {
+  it('识别支付宝进阶理财基金列表', () => {
+    expect(isAlipayAdvancedFundPage(ALIPAY_ADVANCED_FUND_LIST)).toBe(true);
+  });
+  it('总资产页 / 普通基金列表不被误判为进阶理财', () => {
+    expect(isAlipayAdvancedFundPage(ALIPAY_TOTAL_ASSETS)).toBe(false);
+    expect(isAlipayAdvancedFundPage(ALIPAY_FUND_LIST)).toBe(false);
+  });
+});
+
+describe('parseAlipayAdvancedFundOcrText — 支付宝进阶理财基金列表（真实 OCR）', () => {
+  it('切分出 6 支基金', () => {
+    const r = parseAlipayAdvancedFundOcrText(ALIPAY_ADVANCED_FUND_LIST);
+    expect(r.items.length).toBe(6);
+  });
+
+  it('① 建信纳斯达克100指数(QDII)A：金额1,981.17 昨日-7.62 持有+218.69', () => {
+    const r = parseAlipayAdvancedFundOcrText(ALIPAY_ADVANCED_FUND_LIST);
+    const it = r.items[0];
+    expect(it.productName).toContain('建信纳斯达克');
+    expect(it.productName).toContain('100指数');
+    expect(it.marketValue).toBeCloseTo(1981.17, 2);
+    expect(it.dailyProfit).toBeCloseTo(-7.62, 2);
+    expect(it.holdingProfit).toBeCloseTo(218.69, 2);
+  });
+
+  it('② 广发中证军工ETF联接C：金额871.09 昨日+13.98 持有-128.91', () => {
+    const r = parseAlipayAdvancedFundOcrText(ALIPAY_ADVANCED_FUND_LIST);
+    const it = r.items[1];
+    expect(it.productName).toContain('广发中证军工');
+    expect(it.marketValue).toBeCloseTo(871.09, 2);
+    expect(it.dailyProfit).toBeCloseTo(13.98, 2);
+    expect(it.holdingProfit).toBeCloseTo(-128.91, 2);
+  });
+
+  it('⑥ 华泰柏瑞科创50联接C：金额400.32 昨日-14.67 持有+100.32', () => {
+    const r = parseAlipayAdvancedFundOcrText(ALIPAY_ADVANCED_FUND_LIST);
+    const it = r.items[5];
+    expect(it.productName).toContain('华泰柏瑞');
+    expect(it.marketValue).toBeCloseTo(400.32, 2);
+    expect(it.dailyProfit).toBeCloseTo(-14.67, 2);
+    expect(it.holdingProfit).toBeCloseTo(100.32, 2);
+  });
+
+  it('toWealthPrefills 注入 WEALTH 类型与 accountId', () => {
+    const r = parseAlipayAdvancedFundOcrText(ALIPAY_ADVANCED_FUND_LIST);
+    const prefills = toWealthPrefills(r, 'acc_alipay');
+    expect(prefills.length).toBe(6);
+    for (const p of prefills) {
+      expect(p.accountId).toBe('acc_alipay');
+      expect(p.holdingType).toBe(HoldingType.WEALTH);
+      expect(p.marketValue).toBeDefined();
+    }
   });
 });
