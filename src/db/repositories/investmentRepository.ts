@@ -86,9 +86,18 @@ export class InvestmentRepository {
       const costPrice = dto.costPrice ?? 0;
       const currentPrice = dto.currentPrice ?? costPrice;
       const costAmount = shares * costPrice;
-      const marketValue = shares * currentPrice;
-      const profitLoss = marketValue - costAmount;
-      const profitLossRate = costAmount > 0 ? (profitLoss / costAmount) * 100 : 0;
+      const hasShares = shares > 0 && currentPrice > 0;
+      // OCR 兜底：OCR 场景下 shares/currentPrice 多为 0（无法解析份额/净值），
+      // 此时直接采用 OCR 提供的市值/收益（Bug③④ 修复点）。
+      const marketValue = hasShares ? shares * currentPrice : (dto.marketValue ?? 0);
+      const profitLoss = hasShares ? marketValue - costAmount : (dto.holdingProfit ?? 0);
+      const profitLossRate = hasShares
+        ? costAmount > 0
+          ? (profitLoss / costAmount) * 100
+          : 0
+        : (dto.holdingProfitRate ?? 0);
+      const holdingProfit = hasShares ? profitLoss : (dto.holdingProfit ?? 0);
+      const holdingProfitRate = hasShares ? profitLossRate : (dto.holdingProfitRate ?? 0);
 
       investment = {
         id: generateId(),
@@ -100,14 +109,14 @@ export class InvestmentRepository {
         shares,
         costPrice,
         currentPrice,
-        costAmount,
+        costAmount: hasShares ? costAmount : (dto.marketValue ?? 0),
         marketValue,
         profitLoss,
         profitLossRate,
         dailyProfit: dto.dailyProfit,
         dailyProfitRate: dto.dailyProfitRate,
-        holdingProfit: profitLoss,
-        holdingProfitRate: profitLossRate,
+        holdingProfit,
+        holdingProfitRate,
         buyDate: dto.buyDate ?? timestamp.split('T')[0],
         lastSyncAt: dto.lastSyncAt,
         createdAt: timestamp,
@@ -214,9 +223,19 @@ export class InvestmentRepository {
       const costPrice = dto.costPrice ?? existing.costPrice;
       const currentPrice = dto.currentPrice ?? existing.currentPrice;
       const costAmount = shares * costPrice;
-      const marketValue = shares * currentPrice;
-      const profitLoss = marketValue - costAmount;
-      const profitLossRate = costAmount > 0 ? (profitLoss / costAmount) * 100 : 0;
+      const hasShares = shares > 0 && currentPrice > 0;
+      // OCR 兜底：OCR 场景下 shares/currentPrice 多为 0，直接采用 OCR 提供的市值/收益。
+      const marketValue = hasShares ? shares * currentPrice : (dto.marketValue ?? existing.marketValue);
+      const profitLoss = hasShares
+        ? marketValue - costAmount
+        : (dto.holdingProfit ?? existing.holdingProfit ?? 0);
+      const profitLossRate = hasShares
+        ? costAmount > 0
+          ? (profitLoss / costAmount) * 100
+          : 0
+        : (dto.holdingProfitRate ?? existing.holdingProfitRate ?? 0);
+      const holdingProfit = hasShares ? profitLoss : (dto.holdingProfit ?? existing.holdingProfit ?? 0);
+      const holdingProfitRate = hasShares ? profitLossRate : (dto.holdingProfitRate ?? existing.holdingProfitRate ?? 0);
 
       updated = {
         ...existing,
@@ -224,12 +243,12 @@ export class InvestmentRepository {
         shares,
         costPrice,
         currentPrice,
-        costAmount,
+        costAmount: hasShares ? costAmount : (dto.marketValue ?? existing.marketValue),
         marketValue,
         profitLoss,
         profitLossRate,
-        holdingProfit: profitLoss,
-        holdingProfitRate: profitLossRate,
+        holdingProfit,
+        holdingProfitRate,
         updatedAt: now(),
       };
     } else if (existing.holdingType === HoldingType.CASH) {

@@ -29,6 +29,20 @@ import {
   isAlipayTotalAssetsPage,
   parseAlipayAdvancedFundOcrText,
   isAlipayAdvancedFundPage,
+  // Bug① 中国银行「资产管理」资产总览页
+  isBocAssetsPage,
+  parseBocAssetsOcrText,
+  toBocAssetsPrefills,
+  // Bug② 中信证券「我的资产」资产总览页
+  isCiticAssetsPage,
+  parseCiticAssetsOcrText,
+  toCiticAssetsPrefills,
+  // Bug③/④ 基金持仓列表页（中信证券公募基金 / 招商银行基金）
+  isCiticFundPage,
+  parseCiticFundOcrText,
+  isCmbFundPage,
+  parseCmbFundOcrText,
+  toFundPrefills,
 } from '../../services/wealthOcrParser';
 import { parseFundOcrText, toInvestmentPrefill } from '../../services/fundOcrParser';
 import { HoldingType } from '../../types';
@@ -141,6 +155,22 @@ const WealthSyncOcrButton: React.FC<WealthSyncOcrButtonProps> = ({ accounts, onR
         const prefills = toWealthPrefills(parsed, account.id);
         onResult({ ocrType, account, prefills, matched: prefills.length > 0, raw: text });
       } else if (ocrType === 'ASSET') {
+        // Bug① 中国银行「资产管理」资产总览页：理财(WEALTH) + 活期存款(CASH)
+        if (isBocAssetsPage(text)) {
+          const parsed = parseBocAssetsOcrText(text);
+          const prefills = toBocAssetsPrefills(parsed, account.id);
+          onResult({ ocrType, account, prefills, matched: prefills.length > 0, raw: text });
+          reset();
+          return;
+        }
+        // Bug② 中信证券「我的资产」资产总览页：理财(WEALTH) + 现金(CASH)
+        if (isCiticAssetsPage(text)) {
+          const parsed = parseCiticAssetsOcrText(text);
+          const prefills = toCiticAssetsPrefills(parsed, account.id);
+          onResult({ ocrType, account, prefills, matched: prefills.length > 0, raw: text });
+          reset();
+          return;
+        }
         // 支付宝「总资产」页：三栏资产分类（活期/稳健/进阶）专用解析器。
         if (isAlipayTotalAssetsPage(text)) {
           const parsed = parseAlipayTotalAssetsOcrText(text);
@@ -159,6 +189,22 @@ const WealthSyncOcrButton: React.FC<WealthSyncOcrButtonProps> = ({ accounts, onR
           raw: text,
         });
       } else {
+        // Bug③ 中信证券「公募基金持仓」列表页：逐支解析，经 WealthConfirmDialog 批量确认
+        if (isCiticFundPage(text)) {
+          const parsed = parseCiticFundOcrText(text);
+          const prefills = toFundPrefills(parsed, account.id);
+          onResult({ ocrType: 'WEALTH', account, prefills, matched: prefills.length > 0, raw: text });
+          reset();
+          return;
+        }
+        // Bug④ 招商银行「基金持仓」页：单只基金卡片，经 WealthConfirmDialog 批量确认
+        if (isCmbFundPage(text)) {
+          const parsed = parseCmbFundOcrText(text);
+          const prefills = toFundPrefills(parsed, account.id);
+          onResult({ ocrType: 'WEALTH', account, prefills, matched: prefills.length > 0, raw: text });
+          reset();
+          return;
+        }
         const parsed = parseFundOcrText(text);
         const nums = toInvestmentPrefill(parsed);
         const prefill: Partial<CreateInvestmentDTO> = {

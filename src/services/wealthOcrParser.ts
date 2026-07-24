@@ -172,10 +172,12 @@ export function toGoldPrefills(
 
 // ==================== 理财持仓解析器（图2） ====================
 
-/** 单条理财 OCR 解析结果 */
+/** 单条理财/基金 OCR 解析结果 */
 export interface WealthItemOcrResult {
   productName?: string;
   institution?: string;
+  /** 基金代码（Bug③ 中信证券公募基金持仓用，6 位数字） */
+  fundCode?: string;
   marketValue?: number;
   dailyProfit?: number;
   dailyProfitRate?: number;
@@ -725,6 +727,359 @@ export function parseBocWealthOcrText(text: string): WealthOcrParseResult {
   const totalMarketValue = matchAmountAfterKeyword(raw, ['持仓市值', '持仓市值合计']);
   const totalHoldingProfit = matchAmountAfterKeyword(raw, ['累计收益']);
   return { totalMarketValue, totalHoldingProfit, items, raw };
+}
+
+// ==================== 中国银行「资产管理」资产总览页（Bug①） ====================
+
+/** 中国银行「资产管理」页 OCR 解析结果 */
+export interface BocAssetsOcrResult {
+  totalAssets?: number; // 总资产（元）
+  wealthAmount?: number; // 理财（WEALTH）
+  cashAmount?: number; // 活期存款（CASH）
+  raw: string;
+}
+
+/**
+ * 是否为中国银行「资产管理」资产总览页。
+ * 判别特征：标题含「资产管理」+ 主资产分类（活期存款 / 理财）。
+ * 与「理财」持仓列表页区分：列表页标题为「理财」而非「资产管理」，且无「活期存款」两栏主资产。
+ */
+export function isBocAssetsPage(text: string): boolean {
+  const t = normalizeOcrText(text ?? '');
+  if (!/资产管理/.test(t)) return false;
+  return /活期存款/.test(t) || /理财/.test(t);
+}
+
+/**
+ * 解析中国银行「资产管理」页，提取 总资产 / 理财(WEALTH) / 活期存款(CASH)。
+ * 采用「标签位置 + 就近取数」策略，兼容「标签与数值同行」或「标签与数值分行」两种排版，
+ * 且避免把「活期存款」旁的金额误取为「理财」的金额（两值常并列于同一行）。
+ */
+export function parseBocAssetsOcrText(text: string): BocAssetsOcrResult {
+  const raw = normalizeOcrText(text ?? '');
+
+  // 总资产：优先「我的资产」，其次「总资产」
+  const totalAssets = matchAmountAfterKeyword(raw, [
+    '我的资产', '总资产', '总资产(元)', '总资产（元）',
+  ]);
+
+  // 收集全文所有金额及其位置，用于「就近取数」避免错行串号
+  const amountRe = /([0-9][0-9,]*(?:\.[0-9]+)?)/g;
+  const amounts: { value: number; pos: number; end: number }[] = [];
+  let am: RegExpExecArray | null;
+  while ((am = amountRe.exec(raw)) !== null) {
+    const value = parseFloat(am[1].replace(/,/g, ''));
+    if (!Number.isNaN(value)) {
+      amounts.push({ value, pos: am.index, end: am.index + am[0].length });
+    }
+  }
+  const firstAmountAfter = (fromPos: number): { value: number; end: number } | undefined => {
+    const found = amounts.find((a) => a.pos > fromPos);
+    return found ? { value: found.value, end: found.end } : undefined;
+  };
+
+  // 理财（WEALTH）：取「理财」标签后第一个金额
+  let wealthAmount: number | undefined;
+  let wealthEnd = -1;
+  const wealthLabel = raw.indexOf('理财');
+  if (wealthLabel >= 0) {
+    const f = firstAmountAfter(wealthLabel);
+    if (f) {
+      wealthAmount = f.value;
+      wealthEnd = f.end;
+    }
+  }
+
+  // 活期存款（CASH）：取「活期存款/活期」标签之后、且晚于理财金额位置的第一个金额
+  const cashLabel = Math.max(raw.indexOf('活期存款'), raw.indexOf('活期'));
+  let cashAmount: number | undefined;
+  if (cashLabel >= 0) {
+    const f = firstAmountAfter(Math.max(cashLabel, wealthEnd));
+    if (f) cashAmount = f.value;
+  }
+
+  return { totalAssets, wealthAmount, cashAmount, raw };
+}
+
+/**
+ * 中国银行「资产管理」→ 生成 WEALTH(理财) + CASH(活期存款) 的 CreateInvestmentDTO 列表。
+ * 两类之和应等于总资产（自洽校验），写入后账户余额由 recalcBalanceFromHoldings 重算。
+ */
+export function toBocAssetsPrefills(
+  r: BocAssetsOcrResult,
+  accountId: string,
+): Partial<CreateInvestmentDTO>[] {
+  const prefills: Partial<CreateInvestmentDTO>[] = [];
+  if (r.wealthAmount !== undefined) {
+    prefills.push({
+      holdingType: HoldingType.WEALTH,
+      accountId,
+      fundName: '理财',
+      marketValue: r.wealthAmount,
+    });
+  }
+  if (r.cashAmount !== undefined) {
+    prefills.push({
+      holdingType: HoldingType.CASH,
+      accountId,
+      fundName: '活期存款',
+      marketValue: r.cashAmount,
+    });
+  }
+  return prefills;
+}
+
+// ==================== 中信证券「我的资产」总览页（Bug②） ====================
+
+/** 中信证券「我的资产」页 OCR 解析结果 */
+export interface CiticAssetsOcrResult {
+  totalAssets?: number; // 人民币总资产（元）
+  wealthAmount?: number; // 理财（WEALTH）
+  cashAmount?: number; // 现金（CASH）
+  raw: string;
+}
+
+/**
+ * 是否为中信证券「我的资产」资产总览页。
+ * 判别特征：含「我的资产」+（「人民币总资产」或「可用资金」）+「现金」+「理财」。
+ * 与支付宝「总资产」页区分：支付宝使用「活期资产/稳健理财/进阶理财」，无「现金/人民币总资产」。
+ */
+export function isCiticAssetsPage(text: string): boolean {
+  const t = normalizeOcrText(text ?? '');
+  if (!/我的资产/.test(t)) return false;
+  if (!/人民币总资产|可用资金/.test(t)) return false;
+  return /现金/.test(t) && /理财/.test(t);
+}
+
+/**
+ * 解析中信证券「我的资产」页，提取 人民币总资产 / 理财(WEALTH) / 现金(CASH)。
+ * 两栏主资产：理财 + 现金（可用资金），之和应等于人民币总资产。
+ */
+export function parseCiticAssetsOcrText(text: string): CiticAssetsOcrResult {
+  const raw = normalizeOcrText(text ?? '');
+  // 「人民币总资产(元)」与数值间常夹「(元)」括号，距离可能 > 6，单独用宽窗口正则提取。
+  const totalMatch = raw.match(
+    /人民币总资产[^0-9+\-－—¥￥]{0,12}?([0-9][0-9,]*(?:\.[0-9]+)?)/,
+  );
+  const totalAssets =
+    totalMatch !== null
+      ? parseCnyAmount(totalMatch[1])
+      : matchAmountAfterKeyword(raw, ['总资产', '我的资产']);
+  const wealthAmount = matchAmountAfterKeyword(raw, ['理财'], { allowZero: true });
+  const cashAmount = matchAmountAfterKeyword(raw, ['现金', '可用资金'], { allowZero: true });
+  return { totalAssets, wealthAmount, cashAmount, raw };
+}
+
+/**
+ * 中信证券「我的资产」→ 生成 WEALTH(理财) + CASH(现金) 的 CreateInvestmentDTO 列表。
+ */
+export function toCiticAssetsPrefills(
+  r: CiticAssetsOcrResult,
+  accountId: string,
+): Partial<CreateInvestmentDTO>[] {
+  const prefills: Partial<CreateInvestmentDTO>[] = [];
+  if (r.wealthAmount !== undefined) {
+    prefills.push({
+      holdingType: HoldingType.WEALTH,
+      accountId,
+      fundName: '理财',
+      marketValue: r.wealthAmount,
+    });
+  }
+  if (r.cashAmount !== undefined) {
+    prefills.push({
+      holdingType: HoldingType.CASH,
+      accountId,
+      fundName: '现金',
+      marketValue: r.cashAmount,
+    });
+  }
+  return prefills;
+}
+
+// ==================== 基金持仓列表解析器（Bug③/④） ====================
+
+/**
+ * 从一行文本里提取所有「带符号数值」（供基金指标行使用，支持 +/-、千分位、万）。
+ */
+function extractSignedAmounts(line: string): number[] {
+  const re = /([+\-－—]?\s*[0-9][0-9,]*(?:\.[0-9]+)?)/g;
+  const out: number[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(line)) !== null) {
+    const v = parseCnyAmount(m[1]);
+    if (v !== undefined && !Number.isNaN(v)) out.push(v);
+  }
+  return out;
+}
+
+/**
+ * 是否为中信证券「公募基金持仓」列表页。
+ * 判别特征：含「公募基金持仓/公募基金」+ 持有收益 + 至少一个 6 位基金代码。
+ */
+export function isCiticFundPage(text: string): boolean {
+  const t = normalizeOcrText(text ?? '');
+  if (!/公募基金持仓|公募基金/.test(t)) return false;
+  return /持有收益/.test(t) && /\d{6}/.test(t);
+}
+
+/**
+ * 解析中信证券「公募基金持仓」页，逐支提取：
+ *   基金代码（6 位）、基金名称、市值(marketValue)、昨日收益(dailyProfit)、持有收益(holdingProfit)。
+ * 结构（每支）：[名称行 代码] [昨日收益 | 持有收益 | 市值]。
+ */
+export function parseCiticFundOcrText(text: string): WealthOcrParseResult {
+  const raw = normalizeOcrText(text ?? '');
+  const lines = raw.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean);
+  const items: WealthItemOcrResult[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // 基金行：含 6 位基金代码
+    const codeMatch = line.match(/(\d{6})/);
+    if (!codeMatch) continue;
+    const fundCode = codeMatch[1];
+    const codeIdx = codeMatch.index ?? 0;
+
+    // 名称：代码之前的部分，去掉「｜」分隔符与行尾孤「（」
+    let namePart = line.slice(0, codeIdx).replace(/[｜|]/g, '').trim();
+    namePart = namePart.replace(/[（(]\s*$/g, '').trim();
+
+    // 指标：代码之后的数字，按出现顺序 昨日收益 / 持有收益 / 市值
+    let after = line.slice(codeIdx + fundCode.length);
+    // 若下一行无基金代码，则并入其数值（兼容「名称/代码」与「指标」分行排版）
+    const nextLine = lines[i + 1];
+    if (nextLine && !/\d{6}/.test(nextLine)) {
+      after += ' ' + nextLine;
+    }
+    const metricNums = extractSignedAmounts(after);
+    const dailyProfit = metricNums[0];
+    const holdingProfit = metricNums[1];
+    const marketValue = metricNums[2];
+
+    if (!namePart && marketValue === undefined) continue;
+
+    items.push({
+      productName: namePart || undefined,
+      institution: undefined,
+      fundCode,
+      marketValue,
+      dailyProfit,
+      holdingProfit,
+    });
+  }
+
+  return { items, raw };
+}
+
+/**
+ * 是否为招商银行「基金持仓」页。
+ * 判别特征：含「基金」+「总金额」+「金额」+「昨日收益」+「持有收益率/持仓收益率」。
+ * 关键坑：顶部「总金额(元) X」实为昨日收益汇总，并非基金市值；真市值在下方的单只基金卡片「金额」里。
+ */
+export function isCmbFundPage(text: string): boolean {
+  const t = normalizeOcrText(text ?? '');
+  if (!/基金/.test(t)) return false;
+  if (!/总金额/.test(t)) return false;
+  if (!/金额/.test(t)) return false;
+  if (!/昨日收益/.test(t)) return false;
+  return /持有收益率|持仓收益率/.test(t);
+}
+
+/**
+ * 解析招商银行「基金持仓」页（单只基金卡片视图）。
+ * 提取：基金名称、市值(marketValue=卡片「金额」，绝非顶部「总金额」)、
+ *       昨日收益(dailyProfit=卡片「昨日收益」)、持有收益率(holdingProfitRate) 与 持有收益(holdingProfit)。
+ */
+export function parseCmbFundOcrText(text: string): WealthOcrParseResult {
+  const raw = normalizeOcrText(text ?? '');
+  const lines = raw.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean);
+  const items: WealthItemOcrResult[] = [];
+
+  // 顶部/页脚噪声（非卡片）
+  const noiseRe = /(总金额|昨日收益|持仓收益|收益明细|交易记录|我的定投|收益提醒|推荐|按金额排序|单只基金|这些基金公司|招财号|季度报告|查看详情)/;
+
+  let nameLine = '';
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // 卡片「金额」行：排除顶部「总金额」
+    const isCardAmountLine = /金额/.test(line) && line.indexOf('总金额') === -1;
+    if (!isCardAmountLine) {
+      // 候选基金名行：含 ETF / 联接 / 基金 主题词，且非噪声
+      if (!noiseRe.test(line) && /(ETF|联接|基金|主题|指数)/.test(line)) {
+        nameLine = line
+          .replace(/「[^」]*」/g, '')
+          .replace(/[＞>]/g, '')
+          .replace(/\s+/g, '')
+          .trim();
+      }
+      continue;
+    }
+
+    // 卡片市值（卡片「金额」，与顶部「总金额」严格区分）
+    const mvMatch = line.match(
+      /金额[^0-9+\\-－—¥￥]{0,6}([+\-－—]?\s*[¥￥]?\s*[0-9][0-9,]*(?:\.[0-9]+)?)/,
+    );
+    const marketValue = mvMatch ? parseCnyAmount(mvMatch[1]) : undefined;
+
+    // 卡片内「昨日收益」「持有收益率」：向后看至多 3 行
+    let dailyProfit: number | undefined;
+    let holdingProfit: number | undefined;
+    let holdingProfitRate: number | undefined;
+    for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
+      const lj = lines[j];
+      if (/昨日收益/.test(lj)) {
+        const m = lj.match(
+          /昨日收益[^0-9+\\-－—¥￥]{0,6}([+\-－—]?\s*[¥￥]?\s*[0-9][0-9,]*(?:\.[0-9]+)?)/,
+        );
+        if (m) dailyProfit = parseCnyAmount(m[1]);
+      }
+      if (/持有收益率|持仓收益率/.test(lj)) {
+        const nums = extractSignedAmounts(lj);
+        if (nums.length >= 1) holdingProfit = nums[0];
+        const pct = lj.match(/([+\-－—]?\s*[0-9][0-9,]*(?:\.[0-9]+)?)\s*%/);
+        if (pct) holdingProfitRate = parseCnyAmount(pct[1]);
+      }
+    }
+
+    if (nameLine || marketValue !== undefined) {
+      items.push({
+        productName: nameLine || undefined,
+        institution: undefined,
+        marketValue,
+        dailyProfit,
+        holdingProfit,
+        holdingProfitRate,
+      });
+    }
+    nameLine = '';
+  }
+
+  return { items, raw };
+}
+
+/**
+ * 基金持仓列表 → 生成多条 FUND 的 CreateInvestmentDTO（挂 accountId）。
+ * 供 Bug③ 中信证券 / Bug④ 招商银行 基金列表页使用，经 WealthConfirmDialog 批量确认后写入。
+ */
+export function toFundPrefills(
+  r: WealthOcrParseResult,
+  accountId: string,
+): Partial<CreateInvestmentDTO>[] {
+  return r.items
+    .filter((it) => it.productName || it.marketValue !== undefined || it.fundCode)
+    .map((it) => ({
+      holdingType: HoldingType.FUND,
+      accountId,
+      fundName: it.productName ?? '',
+      fundCode: it.fundCode,
+      institution: it.institution,
+      marketValue: it.marketValue,
+      dailyProfit: it.dailyProfit,
+      dailyProfitRate: it.dailyProfitRate,
+      holdingProfit: it.holdingProfit,
+      holdingProfitRate: it.holdingProfitRate,
+    }));
 }
 
 // ==================== prefill 转换 ====================
