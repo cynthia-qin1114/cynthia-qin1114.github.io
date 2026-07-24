@@ -29,13 +29,14 @@ interface WealthConfirmDialogProps {
   onConfirm: (dtos: CreateInvestmentDTO[]) => Promise<void>;
 }
 
-/** 单条可编辑行的本地字符串状态 */
+/** 单条可编辑行的本地字符串状态（original 保留原始 prefill 以便确认时透传 fundCode 等字段） */
 interface EditableRow {
   fundName: string;
   institution: string;
   marketValue: string;
   dailyProfit: string;
   holdingProfit: string;
+  original: Partial<CreateInvestmentDTO>;
 }
 
 /** 将 number 转为输入框字符串（undefined → 空串） */
@@ -68,6 +69,7 @@ const WealthConfirmDialog: React.FC<WealthConfirmDialogProps> = ({
           marketValue: numToStr(p.marketValue),
           dailyProfit: numToStr(p.dailyProfit),
           holdingProfit: numToStr(p.holdingProfit),
+          original: p,
         })),
       );
     }
@@ -88,15 +90,22 @@ const WealthConfirmDialog: React.FC<WealthConfirmDialogProps> = ({
     const valid = rows.filter(
       (r) => r.fundName.trim() !== '' || strToNum(r.marketValue) !== undefined,
     );
-    const dtos: CreateInvestmentDTO[] = valid.map((r) => ({
-      holdingType: HoldingType.WEALTH,
-      accountId: account.id,
-      fundName: r.fundName.trim() || '未命名理财',
-      institution: r.institution.trim() || undefined,
-      marketValue: strToNum(r.marketValue) ?? 0,
-      dailyProfit: strToNum(r.dailyProfit),
-      holdingProfit: strToNum(r.holdingProfit),
-    }));
+    const dtos: CreateInvestmentDTO[] = valid.map((r) => {
+      // 保留原始 prefill 的 holdingType 与 fundCode/holdingProfitRate 等未编辑字段；
+      // 仅用对话框中可编辑的 5 个字段覆盖。默认 WEALTH（向后兼容旧调用）。
+      const base = r.original;
+      const holdingType = base.holdingType ?? HoldingType.WEALTH;
+      return {
+        ...base,
+        holdingType,
+        accountId: account.id,
+        fundName: r.fundName.trim() || base.fundName || '未命名理财',
+        institution: r.institution.trim() || base.institution,
+        marketValue: strToNum(r.marketValue) ?? base.marketValue ?? 0,
+        dailyProfit: strToNum(r.dailyProfit) ?? base.dailyProfit,
+        holdingProfit: strToNum(r.holdingProfit) ?? base.holdingProfit,
+      };
+    });
 
     setSubmitting(true);
     try {
@@ -112,7 +121,7 @@ const WealthConfirmDialog: React.FC<WealthConfirmDialogProps> = ({
   return (
     <Dialog open={open} onClose={submitting ? undefined : onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ fontWeight: 600 }}>
-        确认理财持仓
+        确认{prefills.length > 0 && prefills.every((p) => p.holdingType === HoldingType.FUND) ? '基金' : '理财'}持仓
         {account && <Chip size="small" label={account.name} sx={{ ml: 1 }} />}
       </DialogTitle>
       <DialogContent dividers>

@@ -22,6 +22,20 @@ import {
   isAlipayTotalAssetsPage,
   parseAlipayAdvancedFundOcrText,
   isAlipayAdvancedFundPage,
+  // Bug① 中国银行「资产管理」
+  isBocAssetsPage,
+  parseBocAssetsOcrText,
+  toBocAssetsPrefills,
+  // Bug② 中信证券「我的资产」
+  isCiticAssetsPage,
+  parseCiticAssetsOcrText,
+  toCiticAssetsPrefills,
+  // Bug③/④ 基金持仓列表
+  isCiticFundPage,
+  parseCiticFundOcrText,
+  isCmbFundPage,
+  parseCmbFundOcrText,
+  toFundPrefills,
 } from './wealthOcrParser';
 import {
   BOC_WEALTH,
@@ -29,6 +43,10 @@ import {
   ALIPAY_FUND_LIST,
   ALIPAY_TOTAL_ASSETS,
   ALIPAY_ADVANCED_FUND_LIST,
+  BOC_ASSET_MANAGE,
+  CITIC_MY_ASSETS,
+  CITIC_FUND_LIST,
+  CMB_FUND_HOLDING,
 } from './__fixtures__/realOcrSamples';
 import { HoldingType } from '../types';
 
@@ -455,5 +473,189 @@ describe('parseAlipayAdvancedFundOcrText — 支付宝进阶理财基金列表�
       expect(p.holdingType).toBe(HoldingType.WEALTH);
       expect(p.marketValue).toBeDefined();
     }
+  });
+});
+
+// ==================== Bug① 中国银行「资产管理」资产总览页 ====================
+
+describe('isBocAssetsPage', () => {
+  it('识别中行资产管理页', () => {
+    expect(isBocAssetsPage(BOC_ASSET_MANAGE)).toBe(true);
+  });
+  it('中行理财列表 / 中信 / 支付宝不被误判', () => {
+    expect(isBocAssetsPage(BOC_WEALTH)).toBe(false);
+    expect(isBocAssetsPage(CITIC_MY_ASSETS)).toBe(false);
+    expect(isBocAssetsPage(ALIPAY_TOTAL_ASSETS)).toBe(false);
+  });
+});
+
+describe('parseBocAssetsOcrText — 中国银行资产管理页（真实 OCR）', () => {
+  it('提取 总资产 / 理财(WEALTH) / 活期存款(CASH)', () => {
+    const r = parseBocAssetsOcrText(BOC_ASSET_MANAGE);
+    expect(r.totalAssets).toBeCloseTo(190584.67, 2);
+    expect(r.wealthAmount).toBeCloseTo(160224.03, 2);
+    expect(r.cashAmount).toBeCloseTo(30360.64, 2);
+  });
+
+  it('理财 + 活期 = 总资产（自洽校验）', () => {
+    const r = parseBocAssetsOcrText(BOC_ASSET_MANAGE);
+    const sum = (r.wealthAmount ?? 0) + (r.cashAmount ?? 0);
+    expect(sum).toBeCloseTo(190584.67, 2);
+  });
+
+  it('toBocAssetsPrefills 生成 WEALTH + CASH，注入 accountId', () => {
+    const r = parseBocAssetsOcrText(BOC_ASSET_MANAGE);
+    const prefills = toBocAssetsPrefills(r, 'acc_boc_debit');
+    expect(prefills.length).toBe(2);
+    expect(prefills[0].holdingType).toBe(HoldingType.WEALTH);
+    expect(prefills[0].fundName).toBe('理财');
+    expect(prefills[0].marketValue).toBeCloseTo(160224.03, 2);
+    expect(prefills[1].holdingType).toBe(HoldingType.CASH);
+    expect(prefills[1].fundName).toBe('活期存款');
+    expect(prefills[1].marketValue).toBeCloseTo(30360.64, 2);
+  });
+});
+
+// ==================== Bug② 中信证券「我的资产」资产总览页 ====================
+
+describe('isCiticAssetsPage', () => {
+  it('识别中信证券我的资产页', () => {
+    expect(isCiticAssetsPage(CITIC_MY_ASSETS)).toBe(true);
+  });
+  it('支付宝总资产页 / 中行 / 中信基金列表不被误判', () => {
+    expect(isCiticAssetsPage(ALIPAY_TOTAL_ASSETS)).toBe(false);
+    expect(isCiticAssetsPage(BOC_ASSET_MANAGE)).toBe(false);
+    expect(isCiticAssetsPage(CITIC_FUND_LIST)).toBe(false);
+  });
+});
+
+describe('parseCiticAssetsOcrText — 中信证券我的资产页（真实 OCR）', () => {
+  it('提取 人民币总资产 / 理财(WEALTH) / 现金(CASH)', () => {
+    const r = parseCiticAssetsOcrText(CITIC_MY_ASSETS);
+    expect(r.totalAssets).toBeCloseTo(3055.09, 2);
+    expect(r.wealthAmount).toBeCloseTo(2244.75, 2);
+    expect(r.cashAmount).toBeCloseTo(810.34, 2);
+  });
+
+  it('理财 + 现金 = 人民币总资产（自洽校验）', () => {
+    const r = parseCiticAssetsOcrText(CITIC_MY_ASSETS);
+    const sum = (r.wealthAmount ?? 0) + (r.cashAmount ?? 0);
+    expect(sum).toBeCloseTo(3055.09, 2);
+  });
+
+  it('toCiticAssetsPrefills 生成 WEALTH + CASH，注入 accountId', () => {
+    const r = parseCiticAssetsOcrText(CITIC_MY_ASSETS);
+    const prefills = toCiticAssetsPrefills(r, 'acc_citic_securities');
+    expect(prefills.length).toBe(2);
+    expect(prefills[0].holdingType).toBe(HoldingType.WEALTH);
+    expect(prefills[0].fundName).toBe('理财');
+    expect(prefills[0].marketValue).toBeCloseTo(2244.75, 2);
+    expect(prefills[1].holdingType).toBe(HoldingType.CASH);
+    expect(prefills[1].fundName).toBe('现金');
+    expect(prefills[1].marketValue).toBeCloseTo(810.34, 2);
+  });
+});
+
+// ==================== Bug③ 中信证券「公募基金持仓」列表页 ====================
+
+describe('isCiticFundPage', () => {
+  it('识别中信证券公募基金持仓页', () => {
+    expect(isCiticFundPage(CITIC_FUND_LIST)).toBe(true);
+  });
+  it('我的资产页 / 支付宝基金列表 / 招行基金页不被误判', () => {
+    expect(isCiticFundPage(CITIC_MY_ASSETS)).toBe(false);
+    expect(isCiticFundPage(ALIPAY_FUND_LIST)).toBe(false);
+    expect(isCiticFundPage(CMB_FUND_HOLDING)).toBe(false);
+  });
+});
+
+describe('parseCiticFundOcrText — 中信证券公募基金持仓（真实 OCR）', () => {
+  it('切分出 2 支基金，携带基金代码', () => {
+    const r = parseCiticFundOcrText(CITIC_FUND_LIST);
+    expect(r.items.length).toBe(2);
+    expect(r.items[0].fundCode).toBe('006479');
+    expect(r.items[1].fundCode).toBe('025857');
+  });
+
+  it('① 广发纳指100ETF联接(QDII)：市值1260.79 昨日-6.57 持有+70.79', () => {
+    const r = parseCiticFundOcrText(CITIC_FUND_LIST);
+    const it = r.items[0];
+    expect(it.productName).toContain('广发纳指');
+    expect(it.productName).toContain('100ETF');
+    expect(it.productName).toContain('QDII');
+    expect(it.marketValue).toBeCloseTo(1260.79, 2);
+    expect(it.dailyProfit).toBeCloseTo(-6.57, 2);
+    expect(it.holdingProfit).toBeCloseTo(70.79, 2);
+  });
+
+  it('② 华夏中证电网设备主题ETF发起式：市值983.96 昨日+44.07 持有-16.04', () => {
+    const r = parseCiticFundOcrText(CITIC_FUND_LIST);
+    const it = r.items[1];
+    expect(it.productName).toContain('华夏中证电网');
+    expect(it.marketValue).toBeCloseTo(983.96, 2);
+    expect(it.dailyProfit).toBeCloseTo(44.07, 2);
+    expect(it.holdingProfit).toBeCloseTo(-16.04, 2);
+  });
+
+  it('toFundPrefills 生成 FUND 类型并保留基金代码', () => {
+    const r = parseCiticFundOcrText(CITIC_FUND_LIST);
+    const prefills = toFundPrefills(r, 'acc_citic_securities');
+    expect(prefills.length).toBe(2);
+    for (const p of prefills) {
+      expect(p.holdingType).toBe(HoldingType.FUND);
+      expect(p.accountId).toBe('acc_citic_securities');
+      expect(p.fundCode).toBeDefined();
+      expect(p.marketValue).toBeDefined();
+    }
+    expect(prefills[0].fundCode).toBe('006479');
+  });
+});
+
+// ==================== Bug④ 招商银行「基金持仓」页 ====================
+
+describe('isCmbFundPage', () => {
+  it('识别招商银行基金持仓页', () => {
+    expect(isCmbFundPage(CMB_FUND_HOLDING)).toBe(true);
+  });
+  it('支付宝基金列表 / 中信基金列表 / 中行资产页不被误判', () => {
+    expect(isCmbFundPage(ALIPAY_FUND_LIST)).toBe(false);
+    expect(isCmbFundPage(CITIC_FUND_LIST)).toBe(false);
+    expect(isCmbFundPage(BOC_ASSET_MANAGE)).toBe(false);
+  });
+});
+
+describe('parseCmbFundOcrText — 招商银行基金持仓（真实 OCR）', () => {
+  it('正确提取卡片基金，市值=991.80（绝非顶部总金额 29.52）', () => {
+    const r = parseCmbFundOcrText(CMB_FUND_HOLDING);
+    expect(r.items.length).toBe(1);
+    const it = r.items[0];
+    expect(it.marketValue).toBeCloseTo(991.8, 2);
+    expect(it.marketValue).not.toBeCloseTo(29.52);
+  });
+
+  it('基金名 = 南方有色金属ETF联接E；昨日收益=29.52；持有收益率=-133.20 / -11.84%', () => {
+    const r = parseCmbFundOcrText(CMB_FUND_HOLDING);
+    const it = r.items[0];
+    expect(it.productName).toContain('南方有色金属');
+    expect(it.productName).toContain('ETF联接E');
+    // 顶部「总金额 29.52」是昨日收益汇总，不能串到 holdingProfit
+    expect(it.dailyProfit).toBeCloseTo(29.52, 2);
+    // holdingProfit / holdingProfitRate 必须分别取自「持有收益率 -133.20 / -11.84%」
+    expect(it.holdingProfit).toBeCloseTo(-133.2, 2);
+    expect(it.holdingProfitRate).toBeCloseTo(-11.84, 2);
+  });
+
+  it('toFundPrefills 生成 FUND 类型，市值/收益/收益率正确透传', () => {
+    const r = parseCmbFundOcrText(CMB_FUND_HOLDING);
+    const prefills = toFundPrefills(r, 'acc_cmb_fund');
+    expect(prefills.length).toBe(1);
+    expect(prefills[0].holdingType).toBe(HoldingType.FUND);
+    expect(prefills[0].accountId).toBe('acc_cmb_fund');
+    // marketValue 必须来自卡片「金额 991.80」，而非顶部「总金额 29.52」
+    expect(prefills[0].marketValue).toBeCloseTo(991.8, 2);
+    expect(prefills[0].dailyProfit).toBeCloseTo(29.52, 2);
+    expect(prefills[0].holdingProfit).toBeCloseTo(-133.2, 2);
+    expect(prefills[0].holdingProfitRate).toBeCloseTo(-11.84, 2);
+    expect(prefills[0].fundName).toContain('南方有色金属');
   });
 });
