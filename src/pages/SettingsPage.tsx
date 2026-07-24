@@ -7,13 +7,17 @@ import List from '@mui/material/List';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
+import Snackbar from '@mui/material/Snackbar';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import CloudIcon from '@mui/icons-material/Cloud';
 import StorageIcon from '@mui/icons-material/Storage';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import DownloadIcon from '@mui/icons-material/Download';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import LockIcon from '@mui/icons-material/Lock';
+import RestoreIcon from '@mui/icons-material/Restore';
 import SettingsItem from '../components/settings/SettingsItem';
+import BackupDialog from '../components/settings/BackupDialog';
 import AccountForm from '../components/account/AccountForm';
 import AccountList from '../components/account/AccountList';
 import AccountDetailDialog from '../components/account/AccountDetailDialog';
@@ -36,6 +40,8 @@ const SettingsPage: React.FC = () => {
   const [detailAccount, setDetailAccount] = useState<Account | null>(null);
   const [proxyValue, setProxyValue] = useState(corsProxy);
   const { confirm, dialog } = useConfirmDialog();
+  const [backupMode, setBackupMode] = useState<'backup' | 'restore' | null>(null);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
 
   useEffect(() => {
     fetchAccounts();
@@ -192,6 +198,18 @@ const SettingsPage: React.FC = () => {
               onClick={handleExportData}
             />
             <SettingsItem
+              icon={<LockIcon />}
+              title="加密备份"
+              subtitle="使用密码加密后下载到本机（AES-256-GCM）"
+              onClick={() => setBackupMode('backup')}
+            />
+            <SettingsItem
+              icon={<RestoreIcon />}
+              title="恢复备份"
+              subtitle="从本机加密备份文件恢复全部数据（覆盖）"
+              onClick={() => setBackupMode('restore')}
+            />
+            <SettingsItem
               icon={<DeleteForeverIcon color="error" />}
               title="清空所有数据"
               subtitle="删除所有账户、交易和投资数据"
@@ -243,6 +261,26 @@ const SettingsPage: React.FC = () => {
       />
 
       {dialog}
+
+      {/* 加密备份 / 恢复对话框 */}
+      <BackupDialog
+        open={backupMode !== null}
+        mode={backupMode ?? 'backup'}
+        onClose={() => setBackupMode(null)}
+        onDone={(message) => {
+          setSnackbar({ open: true, message });
+          fetchAccounts();
+        }}
+      />
+
+      {/* 操作结果提示 */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+        message={snackbar.message}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Box>
   );
 };
