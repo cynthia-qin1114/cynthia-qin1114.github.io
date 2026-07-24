@@ -386,6 +386,206 @@ export function parseAlipayFundOcrText(text: string): WealthOcrParseResult {
   return { items, raw };
 }
 
+// ==================== 支付宝「总资产」页解析器（Bug 2） ====================
+
+/** 支付宝「总资产」页 OCR 解析结果 */
+export interface AlipayTotalAssetsOcrResult {
+  totalAssets?: number; // 我的资产（元）
+  yesterdayProfit?: number; // 昨日收益
+  cashAmount?: number; // 活期资产（= 余额宝等活期类）
+  cashDailyProfit?: number; // 活期资产 括号内当日收益（+0.03）
+  stableWealthAmount?: number; // 稳健理财
+  stableWealthDailyProfit?: number; // 稳健理财 括号内当日收益
+  advancedWealthAmount?: number; // 进阶理财
+  advancedWealthDailyProfit?: number; // 进阶理财 括号内当日收益
+  raw: string;
+}
+
+/**
+ * 是否为支付宝「总资产」页（标题「总资产」+「我的资产」/ 三栏资产分类布局）。
+ * 用于 ASSET 分支的分流：命中则走专用解析器，否则回退通用资产分布解析。
+ */
+export function isAlipayTotalAssetsPage(text: string): boolean {
+  const t = normalizeOcrText(text ?? '');
+  if (/我的资产/.test(t)) return true;
+  return /活期资产/.test(t) && /稳健理财/.test(t) && /进阶理财/.test(t);
+}
+
+/**
+ * 提取「关键词 金额（±收益）」结构，返回金额与括号内（或紧邻的）收益。
+ * 适配支付宝写法：「活期资产：1,295.23（+0.03）」「稳健理财：50,008.02（+4.01）」。
+ */
+function matchAmountWithProfit(
+  text: string,
+  keywords: string[],
+): { amount?: number; profit?: number } | undefined {
+  for (const kw of keywords) {
+    const pattern = new RegExp(
+      `${kw}[^0-9+\\-－—¥￥%(]{0,8}` +
+        `([+\\-－—]?\\s*[¥￥]?\\s*[0-9][0-9,]*(?:\\.[0-9]+)?)` +
+        `\\s*(?:万元|万)?` +
+        `[^0-9+\\-－—¥￥]{0,4}` +
+        `([+\\-－—]?\\s*[0-9][0-9,]*(?:\\.[0-9]+)?)?`,
+    );
+    const m = text.match(pattern);
+    if (m) {
+      const amount = parseCnyAmount(m[1]);
+      if (amount === undefined || isNaN(amount)) continue;
+      let profit: number | undefined;
+      if (m[2] !== undefined) {
+        const p = parseCnyAmount(m[2]);
+        if (p !== undefined && !isNaN(p)) profit = p;
+      }
+      return { amount, profit };
+    }
+  }
+  return undefined;
+}
+
+/**
+ * 解析支付宝「总资产」页（图：标题「总资产」，含「我的资产」「三栏资产分类」）。
+ * 提取：我的资产（totalAssets）、昨日收益，以及三栏资产分类：
+ *   活期资产 → CASH、稳健理财/进阶理财 → WEALTH。
+ * 三类金额之和应等于「我的资产」，写入后由账户余额重算保证「余额铁律」。
+ */
+export function parseAlipayTotalAssetsOcrText(text: string): AlipayTotalAssetsOcrResult {
+  const raw = normalizeOcrText(text ?? '');
+  const totalAssets = matchAmountAfterKeyword(raw, ['我的资产', '总资产']);
+  const yesterdayProfit = matchAmountAfterKeyword(raw, ['昨日收益']);
+
+  const cash = matchAmountWithProfit(raw, ['活期资产', '活期']);
+  const stable = matchAmountWithProfit(raw, ['稳健理财']);
+  const advanced = matchAmountWithProfit(raw, ['进阶理财']);
+
+  return {
+    totalAssets,
+    yesterdayProfit,
+    cashAmount: cash?.amount,
+    cashDailyProfit: cash?.profit,
+    stableWealthAmount: stable?.amount,
+    stableWealthDailyProfit: stable?.profit,
+    advancedWealthAmount: advanced?.amount,
+    advancedWealthDailyProfit: advanced?.profit,
+    raw,
+  };
+}
+
+/**
+ * 支付宝「总资产」→ 生成 CASH + WEALTH 的 CreateInvestmentDTO 列表（挂 accountId）。
+ * 活期资产命名优先「余额宝」（若页面含余额宝），否则「活期存款」；
+ * 稳健理财 / 进阶理财 分别归为单条 WEALTH。
+ */
+export function toAlipayTotalAssetsPrefills(
+  r: AlipayTotalAssetsOcrResult,
+  accountId: string,
+): Partial<CreateInvestmentDTO>[] {
+  const prefills: Partial<CreateInvestmentDTO>[] = [];
+
+  if (r.cashAmount !== undefined) {
+    const cashName = /余额宝/.test(r.raw) ? '余额宝' : '活期存款';
+    prefills.push({
+      holdingType: HoldingType.CASH,
+      accountId,
+      fundName: cashName,
+      marketValue: r.cashAmount,
+      dailyProfit: r.cashDailyProfit,
+    });
+  }
+  if (r.stableWealthAmount !== undefined) {
+    prefills.push({
+      holdingType: HoldingType.WEALTH,
+      accountId,
+      fundName: '稳健理财',
+      marketValue: r.stableWealthAmount,
+      dailyProfit: r.stableWealthDailyProfit,
+    });
+  }
+  if (r.advancedWealthAmount !== undefined) {
+    prefills.push({
+      holdingType: HoldingType.WEALTH,
+      accountId,
+      fundName: '进阶理财',
+      marketValue: r.advancedWealthAmount,
+      dailyProfit: r.advancedWealthDailyProfit,
+    });
+  }
+
+  return prefills;
+}
+
+// ==================== 支付宝「进阶理财」基金列表解析器（Bug 3） ====================
+
+/**
+ * 是否为支付宝「进阶理财」基金持仓列表页。
+ * 判别特征：标题「进阶理财」+ 多条「金额…昨日收益…持有收益」指标行（持有收益出现 ≥ 2 次）。
+ * 与「总资产」页区分：总资产页不含「持有收益」关键词。
+ */
+export function isAlipayAdvancedFundPage(text: string): boolean {
+  const t = normalizeOcrText(text ?? '');
+  if (!/进阶理财/.test(t)) return false;
+  const holdProfitCount = (t.match(/持有收益/g) || []).length;
+  return holdProfitCount >= 2;
+}
+
+/**
+ * 解析支付宝「进阶理财」基金持仓列表页。
+ * 结构（每支基金）：
+ *   [名称行]  建信纳斯达克100指数(QDII)A        ← 产品名（可含 (QDII)/ETF，可能跨行）
+ *   [标签行]  基金 定投                         ← 噪声，跳过
+ *   [指标行]  金额 1,981.17 昨日收益 -7.62 持有收益 +218.69  ← 金额/当日/持有
+ * 逐支提取：产品名、金额(marketValue)、昨日收益(dailyProfit)、持有收益(holdingProfit)。
+ */
+export function parseAlipayAdvancedFundOcrText(text: string): WealthOcrParseResult {
+  const raw = normalizeOcrText(text ?? '');
+  const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const items: WealthItemOcrResult[] = [];
+
+  // 标题/页眉/噪声行（不是持仓）
+  const headerRe = /(客服|基金市场|我的持有|排序|金额\s*\/\s*昨日|持有收益\s*\/\s*率|市场解读|自选|更多|进阶理财|资产)/;
+  // 指标行：含 金额 / 昨日收益 / 持有收益 / 收益率
+  const metricRe = /金额|昨日收益|持有收益|收益率/;
+
+  let pendingName = '';
+
+  for (const line of lines) {
+    // 标题/页眉：跳过（进阶理财 标题在此被吞，不影响持仓名累计）
+    if (headerRe.test(line) && !metricRe.test(line)) continue;
+
+    // 指标行：提取 金额 / 昨日收益 / 持有收益
+    if (metricRe.test(line)) {
+      const marketValue = matchAmountAfterKeyword(line, ['金额']);
+      const dailyProfit = matchAmountAfterKeyword(line, ['昨日收益']);
+      const holdingProfit = matchAmountAfterKeyword(line, ['持有收益']);
+      if (marketValue !== undefined || holdingProfit !== undefined) {
+        items.push({
+          productName: pendingName || undefined,
+          institution: undefined,
+          marketValue,
+          dailyProfit,
+          holdingProfit,
+        });
+      }
+      pendingName = '';
+      continue;
+    }
+
+    // 候选名称行：清洗货币金额（仅含小数点的金额，避免误删「纳斯达克100指数」中的 100）/
+    // 括号/标签后仍有中文，则累计为持仓名（支持跨行名称拼接）
+    const cleaned = line
+      .replace(/[+\-－—＝=]?\s*[¥￥]?\s*[0-9][0-9,]*\.[0-9]+\s*(?:万元|万)?%?/g, '')
+      .replace(/[（）()]/g, '')
+      .replace(/\s+/g, '')
+      .trim();
+    const strippedTag = cleaned.replace(/基金|定投/g, '');
+    const chineseCount = (strippedTag.match(/[\u4e00-\u9fa5]/g) || []).length;
+    if (chineseCount >= 3) {
+      pendingName = pendingName ? pendingName + cleaned : cleaned;
+    }
+  }
+
+  return { items, raw };
+}
+
 // ==================== 招商银行理财列表解析器 ====================
 
 /**

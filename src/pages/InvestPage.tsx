@@ -72,7 +72,7 @@ const InvestPage: React.FC = () => {
 
   /** 向导完成回调：按类型分流 */
   const handleWizardResult = async (payload: WealthSyncOcrPayload) => {
-    const { ocrType, account, prefills, cashPrefill, matched } = payload;
+    const { ocrType, account, prefills, matched } = payload;
 
     if (ocrType === 'WEALTH') {
       setWealthPayload(payload);
@@ -82,18 +82,16 @@ const InvestPage: React.FC = () => {
     }
 
     if (ocrType === 'ASSET') {
-      if (cashPrefill && cashPrefill.marketValue !== undefined) {
-        await batchUpsertWealth([{
-          holdingType: HoldingType.CASH,
-          accountId: account.id,
-          fundName: '活期存款',
-          marketValue: cashPrefill.marketValue,
-        }]);
+      if (prefills.length > 0) {
+        await batchUpsertWealth(prefills as CreateInvestmentDTO[]);
         await fetchInvestments();
         await fetchAccounts();
-        setOcrHint(`已更新「${account.name}」活期存款 ${formatCurrency(cashPrefill.marketValue)}`);
+        const total = prefills.reduce((sum, p) => sum + (p.marketValue ?? 0), 0);
+        setOcrHint(
+          `已更新「${account.name}」资产 ${prefills.length} 项，合计 ${formatCurrency(total)}`,
+        );
       } else {
-        setOcrHint('未识别到活期金额，请重试');
+        setOcrHint('未识别到资产金额，请重试');
       }
       return;
     }

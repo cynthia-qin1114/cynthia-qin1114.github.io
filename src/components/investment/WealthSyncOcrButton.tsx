@@ -24,6 +24,11 @@ import {
   toWealthPrefills,
   parseAssetDistributionOcrText,
   toAssetDistributionPrefill,
+  parseAlipayTotalAssetsOcrText,
+  toAlipayTotalAssetsPrefills,
+  isAlipayTotalAssetsPage,
+  parseAlipayAdvancedFundOcrText,
+  isAlipayAdvancedFundPage,
 } from '../../services/wealthOcrParser';
 import { parseFundOcrText, toInvestmentPrefill } from '../../services/fundOcrParser';
 import { HoldingType } from '../../types';
@@ -37,10 +42,8 @@ export type WealthSyncOcrType = 'ASSET' | 'WEALTH' | 'FUND';
 export interface WealthSyncOcrPayload {
   ocrType: WealthSyncOcrType;
   account: Account;
-  /** WEALTH：多条理财预填；FUND：单条基金预填 */
+  /** WEALTH/FUND：多条预填；ASSET：活期 + 理财分类预填（统一走 prefills） */
   prefills: Partial<CreateInvestmentDTO>[];
-  /** ASSET：活期 upsert 预填 */
-  cashPrefill?: Partial<CreateInvestmentDTO>;
   /** 是否识别到有效字段 */
   matched: boolean;
   raw: string;
@@ -112,6 +115,14 @@ const WealthSyncOcrButton: React.FC<WealthSyncOcrButtonProps> = ({ accounts, onR
       const account = selectedAccount;
 
       if (ocrType === 'WEALTH') {
+        // 支付宝「进阶理财」基金列表：专用解析器直出（避免与通用解析器在打分上打平误用）。
+        if (isAlipayAdvancedFundPage(text)) {
+          const parsed = parseAlipayAdvancedFundOcrText(text);
+          const prefills = toWealthPrefills(parsed, account.id);
+          onResult({ ocrType, account, prefills, matched: prefills.length > 0, raw: text });
+          reset();
+          return;
+        }
         // 四解析器自动适配：中行 / 招行列表 / 支付宝基金 / 通用理财。
         // 打分优先「有市值的有效条目数」，其次总条目数——避免通用解析器切出空壳条目误胜。
         const candidates = [
@@ -130,13 +141,20 @@ const WealthSyncOcrButton: React.FC<WealthSyncOcrButtonProps> = ({ accounts, onR
         const prefills = toWealthPrefills(parsed, account.id);
         onResult({ ocrType, account, prefills, matched: prefills.length > 0, raw: text });
       } else if (ocrType === 'ASSET') {
+        // 支付宝「总资产」页：三栏资产分类（活期/稳健/进阶）专用解析器。
+        if (isAlipayTotalAssetsPage(text)) {
+          const parsed = parseAlipayTotalAssetsOcrText(text);
+          const prefills = toAlipayTotalAssetsPrefills(parsed, account.id);
+          onResult({ ocrType, account, prefills, matched: prefills.length > 0, raw: text });
+          reset();
+          return;
+        }
         const parsed = parseAssetDistributionOcrText(text);
         const { cash } = toAssetDistributionPrefill(parsed, account.id);
         onResult({
           ocrType,
           account,
-          prefills: [],
-          cashPrefill: cash,
+          prefills: cash ? [cash] : [],
           matched: cash !== undefined,
           raw: text,
         });

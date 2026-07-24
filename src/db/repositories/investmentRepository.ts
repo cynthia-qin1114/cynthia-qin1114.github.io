@@ -241,6 +241,8 @@ export class InvestmentRepository {
         costAmount: marketValue,
         profitLoss: 0,
         profitLossRate: 0,
+        dailyProfit: undefined,
+        dailyProfitRate: undefined,
         holdingProfit: 0,
         holdingProfitRate: 0,
         lastSyncAt: dto.lastSyncAt ?? now(),

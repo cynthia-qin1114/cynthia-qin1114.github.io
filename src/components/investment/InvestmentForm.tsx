@@ -166,6 +166,15 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({
           currentPrice: currentPrice.trim() === '' ? 0 : parseFloat(currentPrice),
           buyDate,
         };
+      } else if (holdingType === HoldingType.CASH) {
+        data = {
+          holdingType: HoldingType.CASH,
+          accountId,
+          fundName: fundName.trim(),
+          marketValue: parseFloat(marketValue),
+          dailyProfit: dailyProfit.trim() === '' ? undefined : parseFloat(dailyProfit),
+          buyDate,
+        };
       } else {
         data = {
           holdingType: HoldingType.WEALTH,
@@ -205,6 +214,7 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({
           >
             <ToggleButton value={HoldingType.FUND}>基金</ToggleButton>
             <ToggleButton value={HoldingType.WEALTH}>理财</ToggleButton>
+            <ToggleButton value={HoldingType.CASH}>活期</ToggleButton>
             <ToggleButton value={HoldingType.GOLD}>黄金</ToggleButton>
           </ToggleButtonGroup>
 
@@ -333,6 +343,33 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({
                 onChange={(e) => setCurrentPrice(e.target.value)}
                 placeholder="如：550"
                 InputProps={{ inputProps: { step: '0.01' } }}
+              />
+              <TextField
+                label="持有起始日"
+                type="date"
+                value={buyDate}
+                onChange={(e) => setBuyDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </>
+          ) : holdingType === HoldingType.CASH ? (
+            <>
+              <TextField
+                label="产品名称"
+                value={fundName}
+                onChange={(e) => setFundName(e.target.value)}
+                placeholder="如：余额宝 / 零钱通"
+                required
+              />
+              <TextField
+                label="持有市值"
+                type="number"
+                value={marketValue}
+                onChange={(e) => setMarketValue(e.target.value)}
+                placeholder="如：1295.23"
+                required
+                InputProps={{ inputProps: { step: '0.01' } }}
+                helperText="单位：元（活期 / 余额类资产金额）"
               />
               <TextField
                 label="持有起始日"
