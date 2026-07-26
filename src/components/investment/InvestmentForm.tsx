@@ -366,7 +366,7 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({
                 type="number"
                 value={marketValue}
                 onChange={(e) => setMarketValue(e.target.value)}
-                placeholder="如：1295.23"
+                placeholder="如：1000.00"
                 required
                 InputProps={{ inputProps: { step: '0.01' } }}
                 helperText="单位：元（活期 / 余额类资产金额）"
