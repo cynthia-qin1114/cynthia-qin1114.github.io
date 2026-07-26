@@ -100,8 +100,10 @@ const InvestmentCard: React.FC<InvestmentCardProps> = ({
         cursor: onClick ? 'pointer' : 'default',
         mb: 1.5,
         bgcolor: cardBg,
-        '&:hover': onClick ? { boxShadow: '0 4px 12px rgba(0,0,0,0.12)' } : {},
-        transition: 'box-shadow 0.2s',
+        '&:hover': onClick
+          ? { boxShadow: '0 10px 28px rgba(15,23,42,0.10)', transform: 'translateY(-1px)' }
+          : {},
+        transition: 'box-shadow 0.2s ease, transform 0.2s ease',
       }}
     >
       <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>

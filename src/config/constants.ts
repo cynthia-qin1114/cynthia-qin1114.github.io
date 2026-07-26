@@ -82,18 +82,19 @@ export const TransactionTypeColors: Record<string, string> = {
 
 // ==================== 色彩常量 ====================
 
+/** 科技简约风配色（冷静科技蓝 + 中性灰阶 + 语义色） */
 export const COLORS = {
-  PRIMARY: '#1976D2',
-  PRIMARY_LIGHT: '#42A5F5',
-  PRIMARY_DARK: '#0D47A1',
+  PRIMARY: '#2563EB',
+  PRIMARY_LIGHT: '#60A5FA',
+  PRIMARY_DARK: '#1D4ED8',
   INCOME: '#4CAF50',
   EXPENSE: '#F44336',
   INVEST: '#FF9800',
-  BACKGROUND: '#F5F5F5',
+  BACKGROUND: '#F8FAFC',
   SURFACE: '#FFFFFF',
-  TEXT_PRIMARY: '#212121',
-  TEXT_SECONDARY: '#757575',
-  DIVIDER: '#E0E0E0',
+  TEXT_PRIMARY: '#0F172A',
+  TEXT_SECONDARY: '#64748B',
+  DIVIDER: 'rgba(15,23,42,0.08)',
 } as const;
 
 // ==================== 资产类别分组 ====================
@@ -158,11 +159,18 @@ export const CORS_PROXIES = [
 /** 默认CORS代理 */
 export const DEFAULT_CORS_PROXY = CORS_PROXIES[0];
 
-/** 图表颜色列表 */
+/** 图表颜色列表（彩虹色，保留兼容旧引用） */
 export const CHART_COLORS = [
   '#1976D2', '#4CAF50', '#FF9800', '#F44336', '#9C27B0',
   '#00BCD4', '#795548', '#607D8B', '#E91E63', '#3F51B5',
   '#8BC34A', '#CDDC39', '#FFC107', '#FF5722', '#673AB7',
+];
+
+/** 科技风统一色板（冷色系：蓝/青/紫/teal，避免默认彩虹），用于占比类图表 */
+export const CHART_TECH_COLORS = [
+  '#2563EB', '#0EA5E9', '#14B8A6', '#6366F1', '#8B5CF6',
+  '#0D9488', '#3B82F6', '#06B6D4', '#7C3AED', '#475569',
+  '#38BDF8', '#5EEAD4', '#A78BFA', '#22D3EE',
 ];
 
 /** 最近交易显示数量 */
