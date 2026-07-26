@@ -4,6 +4,7 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import { formatCurrency } from '../../utils/format';
 import { COLORS } from '../../config/constants';
+import { techTooltipStyle, techAxisTick, techGridStroke } from '../common/chartTheme';
 import type { AssetOverview } from '../../types';
 
 /**
@@ -39,11 +40,28 @@ const AssetOverviewChart: React.FC<AssetOverviewChartProps> = ({ data }) => {
       </Box>
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={chartData} layout="vertical" margin={{ left: 10, right: 30 }}>
-          <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-          <XAxis type="number" tickFormatter={(v) => `¥${(v / 10000).toFixed(1)}万`} style={{ fontSize: 11 }} />
-          <YAxis type="category" dataKey="name" width={60} style={{ fontSize: 12 }} />
-          <Tooltip formatter={(value: number) => formatCurrency(value)} />
-          <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+          <CartesianGrid stroke={techGridStroke} strokeDasharray="4 4" horizontal={false} />
+          <XAxis
+            type="number"
+            tickFormatter={(v) => `¥${(v / 10000).toFixed(1)}万`}
+            tick={techAxisTick}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis
+            type="category"
+            dataKey="name"
+            width={60}
+            tick={techAxisTick}
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip
+            contentStyle={techTooltipStyle}
+            cursor={{ fill: 'rgba(15,23,42,0.04)' }}
+            formatter={(value: number) => formatCurrency(value)}
+          />
+          <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={22}>
             {chartData.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={entry.color} />
             ))}

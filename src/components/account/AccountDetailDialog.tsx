@@ -15,6 +15,7 @@ import WealthSyncOcrButton from '../investment/WealthSyncOcrButton';
 import type { WealthSyncOcrPayload } from '../investment/WealthSyncOcrButton';
 import WealthConfirmDialog from '../investment/WealthConfirmDialog';
 import InvestmentForm from '../investment/InvestmentForm';
+import InstitutionLogo from '../common/InstitutionLogo';
 import { investmentRepository } from '../../db/repositories/investmentRepository';
 import { formatCurrency } from '../../utils/format';
 import { CATEGORY_GROUP_ORDER, HoldingTypeLabels } from '../../config/constants';
@@ -25,7 +26,7 @@ import type { Account, Investment, CreateInvestmentDTO } from '../../types';
  * AccountDetailDialog — 账户明细（需求①）
  *
  * 从「设置-账户管理」点击账户卡片打开：
- * - 顶部：账户名 + 余额
+ * - 顶部：机构标志 + 账户名 + 余额
  * - 资产汇总：活期 / 理财 / 基金 / 黄金 四类市值小计（按该账户下持仓聚合）
  * - 录入入口：①「截图识别」复用 WealthSyncOcrButton（presetAccount 直接归本账户）
  *            ②「手动录入」打开 InvestmentForm（预置本账户）
@@ -126,9 +127,28 @@ const AccountDetailDialog: React.FC<AccountDetailDialogProps> = ({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span>{account.name}</span>
-        <Typography component="span" variant="subtitle1" sx={{ fontWeight: 700 }}>
+      <DialogTitle
+        sx={{
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 1,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+          <InstitutionLogo name={account.name} size={36} shape="circle" />
+          <span
+            style={{
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {account.name}
+          </span>
+        </Box>
+        <Typography component="span" variant="subtitle1" sx={{ fontWeight: 700, flexShrink: 0 }}>
           {formatCurrency(account.balance)}
         </Typography>
       </DialogTitle>

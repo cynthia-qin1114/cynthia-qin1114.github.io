@@ -13,10 +13,12 @@ html,
 body {
   height: 100%;
   width: 100%;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f5f5f5;
+  background-color: #f8fafc;
+  /* 等宽数字（tabular-nums）：金融金额对齐更整齐，科技感更强 */
+  font-variant-numeric: tabular-nums;
 }
 
 #root {
@@ -29,9 +31,15 @@ body {
   max-width: 430px;
   margin: 0 auto;
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: #f8fafc;
+  /* 极淡科技底色：冷色径向光晕 + 点阵网格纹理（纯 CSS，不影响性能） */
+  background-image:
+    radial-gradient(1100px 520px at 50% -12%, rgba(37, 99, 235, 0.08), transparent 60%),
+    radial-gradient(800px 400px at 100% 0%, rgba(20, 184, 166, 0.05), transparent 55%),
+    radial-gradient(circle at 1px 1px, rgba(15, 23, 42, 0.045) 1px, transparent 0);
+  background-size: 100% 100%, 100% 100%, 22px 22px;
   position: relative;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 0 24px rgba(15, 23, 42, 0.06);
 }
 
 /* ==================== 页面内容区域 ==================== */

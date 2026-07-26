@@ -6,15 +6,15 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#1976D2',
-          light: '#42A5F5',
-          dark: '#0D47A1',
+          DEFAULT: '#2563EB',
+          light: '#60A5FA',
+          dark: '#1D4ED8',
         },
         income: '#4CAF50',
         expense: '#F44336',
         invest: '#FF9800',
         surface: '#FFFFFF',
-        background: '#F5F5F5',
+        background: '#F8FAFC',
       },
       maxWidth: {
         mobile: '430px',
@@ -23,7 +23,7 @@ const config: Config = {
         'bottom-nav': '56px',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'PingFang SC', 'Microsoft YaHei', 'sans-serif'],
       },
     },
   },

@@ -3,10 +3,11 @@ import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area
 import Typography from '@mui/material/Typography';
 import { formatCurrency, formatMonth } from '../../utils/format';
 import { COLORS } from '../../config/constants';
+import { techTooltipStyle, techAxisTick, techGridStroke } from '../common/chartTheme';
 import type { AssetTrendPoint } from '../../types';
 
 /**
- * AssetTrendChart — 资产趋势折线图
+ * AssetTrendChart — 资产趋势面积图（科技简约风）
  */
 interface AssetTrendChartProps {
   data: AssetTrendPoint[];
@@ -26,35 +27,45 @@ const AssetTrendChart: React.FC<AssetTrendChartProps> = ({ data }) => {
 
   return (
     <ResponsiveContainer width="100%" height={260}>
-      <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+      <AreaChart data={chartData} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
         <defs>
-          <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={COLORS.PRIMARY} stopOpacity={0.3} />
+          <linearGradient id="gradTotal" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={COLORS.PRIMARY} stopOpacity={0.28} />
             <stop offset="95%" stopColor={COLORS.PRIMARY} stopOpacity={0} />
           </linearGradient>
-          <linearGradient id="colorInvest" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={COLORS.INVEST} stopOpacity={0.3} />
+          <linearGradient id="gradInvest" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={COLORS.INVEST} stopOpacity={0.28} />
             <stop offset="95%" stopColor={COLORS.INVEST} stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-        <XAxis dataKey="name" style={{ fontSize: 11 }} />
-        <YAxis tickFormatter={(v) => `${(v / 10000).toFixed(0)}万`} style={{ fontSize: 11 }} />
-        <Tooltip formatter={(value: number) => formatCurrency(value)} />
-        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <CartesianGrid stroke={techGridStroke} strokeDasharray="4 4" vertical={false} />
+        <XAxis dataKey="name" tick={techAxisTick} axisLine={false} tickLine={false} />
+        <YAxis
+          tickFormatter={(v) => `${(v / 10000).toFixed(0)}万`}
+          tick={techAxisTick}
+          axisLine={false}
+          tickLine={false}
+          width={40}
+        />
+        <Tooltip contentStyle={techTooltipStyle} formatter={(value: number) => formatCurrency(value)} />
+        <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" />
         <Area
           type="monotone"
           dataKey="总资产"
           stroke={COLORS.PRIMARY}
-          strokeWidth={2}
-          fill="url(#colorTotal)"
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          fill="url(#gradTotal)"
+          activeDot={{ r: 4, strokeWidth: 0 }}
         />
         <Area
           type="monotone"
           dataKey="投资资产"
           stroke={COLORS.INVEST}
-          strokeWidth={2}
-          fill="url(#colorInvest)"
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          fill="url(#gradInvest)"
+          activeDot={{ r: 4, strokeWidth: 0 }}
         />
       </AreaChart>
     </ResponsiveContainer>

@@ -1,11 +1,14 @@
 import React from 'react';
 import Avatar from '@mui/material/Avatar';
 import { resolveAccountBrand } from '../../utils/accountBrand';
+import { isKnownInstitution } from '../common/InstitutionLogo';
+import InstitutionLogo from '../common/InstitutionLogo';
 import type { Account } from '../../types';
 
 /**
- * AccountAvatar — 账户品牌头像（需求⑥）
- * 圆形头像，品牌色底 + 机构简称，一眼区分 招行/支付宝/微信 等。
+ * AccountAvatar — 账户品牌头像
+ * - 命中已知机构 → 渲染拟真品牌标志（圆形头像风）。
+ * - 未命中 → 沿用品牌色 + 机构简称文字头像（保持原有可读性与辨识度）。
  */
 interface AccountAvatarProps {
   account: Account;
@@ -13,6 +16,23 @@ interface AccountAvatarProps {
 }
 
 const AccountAvatar: React.FC<AccountAvatarProps> = ({ account, size = 44 }) => {
+  if (isKnownInstitution(account.name)) {
+    return (
+      <Avatar
+        sx={{
+          width: size,
+          height: size,
+          bgcolor: 'transparent',
+          p: 0,
+          overflow: 'hidden',
+          flexShrink: 0,
+        }}
+      >
+        <InstitutionLogo name={account.name} size={size} shape="circle" />
+      </Avatar>
+    );
+  }
+
   const brand = resolveAccountBrand(account.name);
   return (
     <Avatar
