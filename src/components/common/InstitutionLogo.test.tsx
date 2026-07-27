@@ -38,3 +38,35 @@ describe('InstitutionLogo', () => {
     expect(container.querySelector('svg circle')).not.toBeNull();
   });
 });
+
+describe('logo glyphs render as pure vector SVG (no <text>)', () => {
+  const vectorLogos: string[] = [
+    '支付宝',
+    '微信理财通',
+    '中国银行',
+    '招商银行',
+    '建设银行',
+    '农业银行',
+    '中信证券',
+  ];
+
+  it.each(vectorLogos)('%s glyph contains vector shapes and no <text>', (name) => {
+    const { container } = render(<InstitutionLogo name={name} />);
+    const svg = container.querySelector('svg');
+    expect(svg).not.toBeNull();
+    // 重绘的 7 个 logo 主体不使用 <text>
+    expect(svg?.querySelector('text')).toBeNull();
+    // 且至少包含一个原生矢量图形（path / circle / rect）
+    expect(svg?.querySelector('path, circle, rect')).not.toBeNull();
+  });
+
+  it('keeps registry order / keywords / colors intact for redrawn logos', () => {
+    expect(matchInstitution('微信理财通')?.color).toBe('#07C160');
+    expect(matchInstitution('支付宝')?.color).toBe('#1677FF');
+    expect(matchInstitution('中国银行')?.color).toBe('#B81C22');
+    expect(matchInstitution('招商银行')?.color).toBe('#E60012');
+    expect(matchInstitution('建设银行')?.color).toBe('#004C97');
+    expect(matchInstitution('农业银行')?.color).toBe('#009944');
+    expect(matchInstitution('中信证券')?.color).toBe('#C7000B');
+  });
+});

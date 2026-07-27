@@ -82,19 +82,25 @@ export const TransactionTypeColors: Record<string, string> = {
 
 // ==================== 色彩常量 ====================
 
-/** 科技简约风配色（冷静科技蓝 + 中性灰阶 + 语义色） */
+/**
+ * 暗色科技风配色（深海军蓝底 + 霓虹青光晕 + 玻璃拟态）
+ * - PRIMARY 保持科技蓝 #2563EB；新增 CYAN 霓虹青 #06B6D4。
+ * - BACKGROUND 深空底 #0B1120；SURFACE 玻璃面 #1E293B。
+ * - TEXT_* 与 DIVIDER 调为暗底高对比度。
+ */
 export const COLORS = {
   PRIMARY: '#2563EB',
+  CYAN: '#06B6D4',
   PRIMARY_LIGHT: '#60A5FA',
   PRIMARY_DARK: '#1D4ED8',
   INCOME: '#4CAF50',
   EXPENSE: '#F44336',
   INVEST: '#FF9800',
-  BACKGROUND: '#F8FAFC',
-  SURFACE: '#FFFFFF',
-  TEXT_PRIMARY: '#0F172A',
-  TEXT_SECONDARY: '#64748B',
-  DIVIDER: 'rgba(15,23,42,0.08)',
+  BACKGROUND: '#0B1120',
+  SURFACE: '#1E293B',
+  TEXT_PRIMARY: '#F1F5F9',
+  TEXT_SECONDARY: '#94A3B8',
+  DIVIDER: 'rgba(148,163,184,0.12)',
 } as const;
 
 // ==================== 资产类别分组 ====================
@@ -166,11 +172,14 @@ export const CHART_COLORS = [
   '#8BC34A', '#CDDC39', '#FFC107', '#FF5722', '#673AB7',
 ];
 
-/** 科技风统一色板（冷色系：蓝/青/紫/teal，避免默认彩虹），用于占比类图表 */
+/**
+ * 暗底高亮色板（霓虹蓝/青/teal/紫/粉，暗底对比强）。
+ * 用于占比类图表，避免在深海军蓝底上发暗。
+ */
 export const CHART_TECH_COLORS = [
-  '#2563EB', '#0EA5E9', '#14B8A6', '#6366F1', '#8B5CF6',
-  '#0D9488', '#3B82F6', '#06B6D4', '#7C3AED', '#475569',
-  '#38BDF8', '#5EEAD4', '#A78BFA', '#22D3EE',
+  '#38BDF8', '#22D3EE', '#2DD4BF', '#818CF8', '#A78BFA',
+  '#34D399', '#60A5FA', '#06B6D4', '#C084FC', '#F472B6',
+  '#4ADE80', '#5EEAD4', '#93C5FD', '#FBBF24',
 ];
 
 /** 最近交易显示数量 */
