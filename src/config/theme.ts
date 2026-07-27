@@ -48,7 +48,7 @@ const theme = createTheme({
     h4: { fontWeight: 700 },
     h5: { fontWeight: 600 },
     h6: { fontWeight: 600 },
-    subtitle1: { fontWeight: 500 },
+    subtitle1: { fontWeight: 600 },
     subtitle2: { fontWeight: 600, letterSpacing: 0.1 },
     body1: { fontWeight: 400 },
     body2: { fontWeight: 400 },
@@ -72,9 +72,22 @@ const theme = createTheme({
         containedPrimary: {
           // 发光主按钮
           boxShadow: '0 0 20px rgba(37,99,235,0.4)',
+          transition: 'box-shadow 0.25s ease, transform 0.2s ease',
+          '&:hover': {
+            boxShadow: '0 0 28px rgba(37,99,235,0.65)',
+            transform: 'translateY(-1px)',
+          },
         },
         contained: {
           boxShadow: 'none',
+        },
+        outlinedPrimary: {
+          borderColor: 'rgba(37,99,235,0.5)',
+          '&:hover': {
+            borderColor: COLORS.PRIMARY,
+            boxShadow: '0 0 16px rgba(37,99,235,0.3)',
+            background: 'rgba(37,99,235,0.08)',
+          },
         },
       },
     },
@@ -82,9 +95,12 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 16,
-          // 玻璃拟态：顶部高光内阴影 + 深色投影 + 霓虹发光边框
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 24px rgba(0,0,0,0.4)',
-          border: '1px solid rgba(37,99,235,0.15)',
+          // 真玻璃拟态：半透明面 + 背景模糊 + 顶部高光 + 霓虹细边
+          background: 'rgba(30,41,59,0.55)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08), 0 8px 30px rgba(0,0,0,0.45)',
+          border: '1px solid rgba(148,163,184,0.14)',
         },
       },
     },
@@ -126,11 +142,12 @@ const theme = createTheme({
       styleOverrides: {
         paper: {
           borderRadius: 20,
-          background: 'rgba(30,41,59,0.98)',
+          background: 'rgba(30,41,59,0.94)',
           backgroundImage: 'none',
           border: '1px solid rgba(37,99,235,0.25)',
           boxShadow: '0 0 40px rgba(37,99,235,0.18), 0 24px 60px rgba(0,0,0,0.6)',
-          backdropFilter: 'blur(10px)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
         },
       },
     },
@@ -141,6 +158,7 @@ const theme = createTheme({
           borderTop: '1px solid rgba(37,99,235,0.18)',
           backgroundColor: 'rgba(17,24,39,0.9)',
           backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
           boxShadow: '0 -2px 18px rgba(0,0,0,0.45), 0 0 16px rgba(37,99,235,0.12)',
         },
       },

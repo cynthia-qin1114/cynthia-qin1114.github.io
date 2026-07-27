@@ -54,8 +54,34 @@ const BottomNav: React.FC = () => {
           '& .MuiBottomNavigationAction-label': {
             fontSize: '0.7rem',
           },
+          '& .MuiBottomNavigationAction-root': {
+            color: 'rgba(148,163,184,0.7)',
+            position: 'relative',
+            transition: 'color 0.2s ease, transform 0.2s ease',
+          },
           '& .Mui-selected': {
-            color: 'primary.main',
+            color: '#22D3EE',
+          },
+          '& .Mui-selected .MuiBottomNavigationAction-label': {
+            color: '#22D3EE',
+            fontWeight: 700,
+          },
+          '& .Mui-selected .MuiSvgIcon-root': {
+            filter: 'drop-shadow(0 0 6px rgba(34,211,238,0.9))',
+            transform: 'scale(1.15)',
+            transition: 'transform 0.2s ease, filter 0.2s ease',
+          },
+          '& .MuiBottomNavigationAction-root.Mui-selected::after': {
+            content: '""',
+            position: 'absolute',
+            top: 7,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 22,
+            height: 3,
+            borderRadius: 2,
+            background: '#22D3EE',
+            boxShadow: '0 0 8px rgba(34,211,238,0.9)',
           },
         }}
       >

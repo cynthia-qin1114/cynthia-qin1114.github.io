@@ -18,8 +18,8 @@ import { COLORS } from '../config/constants';
 import type { Account, Transaction, CreateAccountDTO, UpdateAccountDTO } from '../types';
 
 /**
- * OverviewPage — 概览页
- * 总资产卡片 + 本月收支 + 账户列表 + 最近交易
+ * OverviewPage — 概览页（暗色科技风增强）
+ * 净资产 Hero 卡片（渐变 + 光斑 + 渐变数字） + 本月收支 + 账户列表 + 最近交易
  */
 const OverviewPage: React.FC = () => {
   const { accounts, totalAssets, totalLiabilities, netAssets, fetchAccounts, createAccount, refreshTotalAssets } = useAccount();
@@ -63,31 +63,49 @@ const OverviewPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 2 }}>
-      {/* 总资产卡片 */}
+      {/* 净资产 Hero 卡片 */}
       <Card
+        className="stagger-in"
         sx={{
           mb: 2,
-          background: `linear-gradient(135deg, ${COLORS.PRIMARY} 0%, ${COLORS.PRIMARY_DARK} 100%)`,
+          position: 'relative',
+          overflow: 'hidden',
+          background: 'linear-gradient(135deg, #1D4ED8 0%, #2563EB 48%, #06B6D4 100%)',
           color: 'white',
+          border: '1px solid rgba(255,255,255,0.14)',
+          boxShadow: '0 12px 38px rgba(37,99,235,0.38), inset 0 1px 0 rgba(255,255,255,0.20)',
         }}
       >
-        <CardContent sx={{ py: 3 }}>
-          <Typography variant="caption" sx={{ opacity: 0.8 }}>
+        <Box className="hero-glow" sx={{ zIndex: 0 }} />
+        <CardContent sx={{ py: 3, position: 'relative', zIndex: 1 }}>
+          <Typography variant="caption" sx={{ opacity: 0.85, letterSpacing: '0.04em' }}>
             净资产
           </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 700, mt: 0.5, mb: 2 }}>
+          <Typography
+            variant="h4"
+            sx={{
+              fontWeight: 800,
+              mt: 0.5,
+              mb: 2,
+              letterSpacing: '-0.02em',
+              background: 'linear-gradient(90deg, #FFFFFF 0%, #CFFAFE 100%)',
+              WebkitBackgroundClip: 'text',
+              backgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
             {formatCurrency(netAssets)}
           </Typography>
           <Grid container spacing={2}>
             <Grid item xs={6}>
-              <Typography variant="caption" sx={{ opacity: 0.8 }}>总资产</Typography>
-              <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              <Typography variant="caption" sx={{ opacity: 0.85 }}>总资产</Typography>
+              <Typography variant="body1" sx={{ fontWeight: 700, fontSize: '1.05rem' }}>
                 {formatCurrency(totalAssets)}
               </Typography>
             </Grid>
             <Grid item xs={6}>
-              <Typography variant="caption" sx={{ opacity: 0.8 }}>总负债</Typography>
-              <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              <Typography variant="caption" sx={{ opacity: 0.85 }}>总负债</Typography>
+              <Typography variant="body1" sx={{ fontWeight: 700, fontSize: '1.05rem' }}>
                 {formatCurrency(totalLiabilities)}
               </Typography>
             </Grid>
@@ -96,9 +114,9 @@ const OverviewPage: React.FC = () => {
       </Card>
 
       {/* 本月收支 */}
-      <Card sx={{ mb: 2 }}>
+      <Card className="stagger-in" sx={{ mb: 2 }}>
         <CardContent>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>
+          <Typography variant="subtitle1" className="section-head" sx={{ mb: 1.5 }}>
             本月收支
           </Typography>
           <Grid container spacing={2}>
@@ -123,8 +141,8 @@ const OverviewPage: React.FC = () => {
       </Card>
 
       {/* 账户列表 */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2, mb: 1, px: 0.5 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+      <Box className="stagger-in" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2, mb: 1, px: 0.5 }}>
+        <Typography variant="subtitle1" className="section-head">
           我的账户
         </Typography>
         <Button
@@ -135,32 +153,36 @@ const OverviewPage: React.FC = () => {
           添加账户
         </Button>
       </Box>
-      {accounts.length > 0 ? (
-        <AccountList accounts={accounts} />
-      ) : (
-        <Card>
-          <CardContent>
-            <Typography color="text.secondary" align="center" sx={{ mb: 1.5 }}>
-              暂无账户，请先添加账户
-            </Typography>
-            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-              <Button
-                variant="outlined"
-                startIcon={<AddIcon />}
-                onClick={() => setAccountFormOpen(true)}
-              >
-                添加账户
-              </Button>
-            </Box>
-          </CardContent>
-        </Card>
-      )}
+      <Box className="stagger-in">
+        {accounts.length > 0 ? (
+          <AccountList accounts={accounts} />
+        ) : (
+          <Card>
+            <CardContent>
+              <Typography color="text.secondary" align="center" sx={{ mb: 1.5 }}>
+                暂无账户，请先添加账户
+              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={() => setAccountFormOpen(true)}
+                >
+                  添加账户
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        )}
+      </Box>
 
       {/* 最近交易 */}
-      <Typography variant="subtitle1" sx={{ fontWeight: 600, mt: 2, mb: 1, px: 0.5 }}>
-        最近交易
-      </Typography>
-      <Card>
+      <Box className="stagger-in" sx={{ mt: 2, mb: 1, px: 0.5 }}>
+        <Typography variant="subtitle1" className="section-head">
+          最近交易
+        </Typography>
+      </Box>
+      <Card className="stagger-in">
         <CardContent>
           {recentTransactions.length > 0 ? (
             <TransactionList transactions={recentTransactions} accountMap={accountMap} />
