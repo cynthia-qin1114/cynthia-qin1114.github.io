@@ -16,7 +16,7 @@ import { useDcaStore } from './store/useDcaStore';
 import { formatCurrency } from './utils/format';
 
 /**
- * ErrorBoundary — 捕获子组件渲染错误，展示降级UI
+ * ErrorBoundary — 捕获子组件渲染错误，展示降级UI（暗色兼容）
  */
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
   constructor(props: { children: ReactNode }) {
@@ -35,9 +35,18 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   render(): ReactNode {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: 24, textAlign: 'center', marginTop: 60 }}>
-          <h2>应用出现错误</h2>
-          <p style={{ color: '#757575', marginTop: 8 }}>{this.state.error?.message ?? '未知错误'}</p>
+        <div
+          style={{
+            padding: 24,
+            textAlign: 'center',
+            marginTop: 60,
+            minHeight: '100vh',
+            background: '#0B1120',
+            color: '#F1F5F9',
+          }}
+        >
+          <h2 style={{ color: '#F1F5F9' }}>应用出现错误</h2>
+          <p style={{ color: '#94A3B8', marginTop: 8 }}>{this.state.error?.message ?? '未知错误'}</p>
           <button
             onClick={() => {
               this.setState({ hasError: false, error: null });
@@ -51,6 +60,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
               backgroundColor: '#2563EB',
               color: '#fff',
               cursor: 'pointer',
+              boxShadow: '0 0 20px rgba(37,99,235,0.4)',
             }}
           >
             重新加载

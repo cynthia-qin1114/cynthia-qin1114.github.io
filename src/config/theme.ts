@@ -2,13 +2,13 @@ import { createTheme } from '@mui/material/styles';
 import { COLORS } from './constants';
 
 /**
- * MUI 主题配置 — 科技简约风
- * 主色：冷静科技蓝；中性灰阶；语义色；柔和阴影 + 细 hairline 边框；
- * 统一圆角与字体层级（数字走等宽，详见 index.css 的 tabular-nums）。
+ * MUI 主题配置 — 暗色科技风（深海军蓝底 + 霓虹青光晕 + 玻璃拟态卡片）
+ * 主色：科技蓝 #2563EB；霓虹青 #06B6D4；暗底高对比文本；发光边框；柔和深色阴影。
+ * palette.mode='dark'；背景/文本/分隔线用暗色值；统一圆角与等宽数字字体。
  */
 const theme = createTheme({
   palette: {
-    mode: 'light',
+    mode: 'dark',
     primary: {
       main: COLORS.PRIMARY,
       light: COLORS.PRIMARY_LIGHT,
@@ -70,7 +70,8 @@ const theme = createTheme({
           boxShadow: 'none',
         },
         containedPrimary: {
-          boxShadow: '0 6px 16px rgba(37,99,235,0.25)',
+          // 发光主按钮
+          boxShadow: '0 0 20px rgba(37,99,235,0.4)',
         },
         contained: {
           boxShadow: 'none',
@@ -81,8 +82,9 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 16,
-          boxShadow: '0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.06)',
-          border: '1px solid rgba(15,23,42,0.06)',
+          // 玻璃拟态：顶部高光内阴影 + 深色投影 + 霓虹发光边框
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 24px rgba(0,0,0,0.4)',
+          border: '1px solid rgba(37,99,235,0.15)',
         },
       },
     },
@@ -90,6 +92,10 @@ const theme = createTheme({
       styleOverrides: {
         rounded: {
           borderRadius: 16,
+        },
+        root: {
+          // 关闭 MUI 暗色 Paper 默认渐变，露出干净的玻璃面底色
+          backgroundImage: 'none',
         },
       },
     },
@@ -99,10 +105,32 @@ const theme = createTheme({
         fullWidth: true,
       },
     },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          // 暗色边框 + focus 发光
+          '& fieldset': {
+            borderColor: 'rgba(148,163,184,0.25)',
+          },
+          '&:hover fieldset': {
+            borderColor: 'rgba(37,99,235,0.5)',
+          },
+          '&.Mui-focused fieldset': {
+            borderColor: COLORS.PRIMARY,
+            boxShadow: '0 0 0 3px rgba(37,99,235,0.18)',
+          },
+        },
+      },
+    },
     MuiDialog: {
       styleOverrides: {
         paper: {
           borderRadius: 20,
+          background: 'rgba(30,41,59,0.98)',
+          backgroundImage: 'none',
+          border: '1px solid rgba(37,99,235,0.25)',
+          boxShadow: '0 0 40px rgba(37,99,235,0.18), 0 24px 60px rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(10px)',
         },
       },
     },
@@ -110,9 +138,10 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           height: 60,
-          borderTop: '1px solid rgba(15,23,42,0.06)',
-          backgroundColor: 'rgba(255,255,255,0.85)',
-          backdropFilter: 'blur(8px)',
+          borderTop: '1px solid rgba(37,99,235,0.18)',
+          backgroundColor: 'rgba(17,24,39,0.9)',
+          backdropFilter: 'blur(10px)',
+          boxShadow: '0 -2px 18px rgba(0,0,0,0.45), 0 0 16px rgba(37,99,235,0.12)',
         },
       },
     },

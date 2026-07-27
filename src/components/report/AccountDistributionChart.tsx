@@ -28,7 +28,7 @@ const renderLabel = (props: any) => {
     <text
       x={x}
       y={y}
-      fill="#475569"
+      fill="#CBD5E1"
       fontSize={11}
       fontWeight={600}
       textAnchor={x > cx ? 'start' : 'end'}

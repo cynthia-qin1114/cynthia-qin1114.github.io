@@ -14,7 +14,8 @@ import { HoldingType } from '../../types';
 import type { Investment } from '../../types';
 
 /**
- * InvestmentCard — 持仓分条卡片
+ * InvestmentCard — 持仓分条卡片（暗色科技风）
+ * 顶部 3px 渐变 accent 条（primary → cyan）；hover 上浮 + 霓虹辉光。
  *
  * 按产品分条展示：产品名 · 所属账户 · 持有市值 · 当日收益(额+率) · 持有收益(额+率)。
  * 区分 FUND / WEALTH / GOLD / CASH 视图：
@@ -100,12 +101,24 @@ const InvestmentCard: React.FC<InvestmentCardProps> = ({
         cursor: onClick ? 'pointer' : 'default',
         mb: 1.5,
         bgcolor: cardBg,
+        overflow: 'hidden',
         '&:hover': onClick
-          ? { boxShadow: '0 10px 28px rgba(15,23,42,0.10)', transform: 'translateY(-1px)' }
+          ? {
+              boxShadow:
+                '0 14px 32px rgba(0,0,0,0.45), 0 0 18px rgba(37,99,235,0.25)',
+              transform: 'translateY(-2px)',
+            }
           : {},
         transition: 'box-shadow 0.2s ease, transform 0.2s ease',
       }}
     >
+      {/* 顶部渐变 accent 条 */}
+      <Box
+        sx={{
+          height: 3,
+          background: 'linear-gradient(90deg,#2563EB 0%,#06B6D4 100%)',
+        }}
+      />
       <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
         {/* 头部：产品名 + 类型徽章 + 菜单 */}
         <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 0.5 }}>

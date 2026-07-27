@@ -11,7 +11,8 @@ import AccountAvatar from './AccountAvatar';
 import type { Account } from '../../types';
 
 /**
- * AccountCard — 账户卡片
+ * AccountCard — 账户卡片（暗色科技风）
+ * 顶部 3px 渐变 accent 条（primary → cyan）；hover 上浮 + 霓虹辉光。
  */
 interface AccountCardProps {
   account: Account;
@@ -28,12 +29,24 @@ const AccountCard: React.FC<AccountCardProps> = ({ account, onClick, onMenuClick
       sx={{
         cursor: onClick ? 'pointer' : 'default',
         mb: 1.5,
+        overflow: 'hidden',
         '&:hover': onClick
-          ? { boxShadow: '0 10px 28px rgba(15,23,42,0.10)', transform: 'translateY(-1px)' }
+          ? {
+              boxShadow:
+                '0 14px 32px rgba(0,0,0,0.45), 0 0 18px rgba(37,99,235,0.25)',
+              transform: 'translateY(-2px)',
+            }
           : {},
         transition: 'box-shadow 0.2s ease, transform 0.2s ease',
       }}
     >
+      {/* 顶部渐变 accent 条 */}
+      <Box
+        sx={{
+          height: 3,
+          background: 'linear-gradient(90deg,#2563EB 0%,#06B6D4 100%)',
+        }}
+      />
       <CardContent sx={{ display: 'flex', alignItems: 'center', py: 2, '&:last-child': { pb: 2 } }}>
         <Box sx={{ mr: 2, flexShrink: 0 }}>
           <AccountAvatar account={account} />
