@@ -130,6 +130,13 @@ export const CATEGORY_COLORS: Partial<Record<HoldingType, string>> = {
   CASH: '#9E9E9E',
 };
 
+// ==================== CASH（活期）展示与写库 ====================
+
+/** CASH 写库幂等键默认值（与 investmentRepository 现有字面量一致） */
+export const DEFAULT_CASH_NAME = '活期存款';
+/** CASH 界面中性展示文案（替代产品名） */
+export const CASH_DISPLAY_LABEL = '活期';
+
 // ==================== 需求④ 招行黄金 ====================
 
 /** 黄金 ETF 标的（华安黄金 ETF，天天基金代码；金价代理源） */

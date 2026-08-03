@@ -18,7 +18,7 @@ import InvestmentForm from '../investment/InvestmentForm';
 import InstitutionLogo from '../common/InstitutionLogo';
 import { investmentRepository } from '../../db/repositories/investmentRepository';
 import { formatCurrency } from '../../utils/format';
-import { CATEGORY_GROUP_ORDER, HoldingTypeLabels } from '../../config/constants';
+import { CATEGORY_GROUP_ORDER, HoldingTypeLabels, CASH_DISPLAY_LABEL } from '../../config/constants';
 import { HoldingType } from '../../types';
 import type { Account, Investment, CreateInvestmentDTO } from '../../types';
 
@@ -208,10 +208,12 @@ const AccountDetailDialog: React.FC<AccountDetailDialogProps> = ({
                 sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.5 }}
               >
                 <Typography variant="body2" noWrap sx={{ flex: 1, minWidth: 0 }}>
-                  {h.fundName}
-                  <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                    {HoldingTypeLabels[h.holdingType]}
-                  </Typography>
+                  {h.holdingType === HoldingType.CASH ? CASH_DISPLAY_LABEL : h.fundName}
+                  {h.holdingType !== HoldingType.CASH && (
+                    <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                      {HoldingTypeLabels[h.holdingType]}
+                    </Typography>
+                  )}
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   {formatCurrency(h.marketValue ?? 0)}
