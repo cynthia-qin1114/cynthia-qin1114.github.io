@@ -10,6 +10,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { formatCurrency, formatPercentValue, formatDate } from '../../utils/format';
 import { profitColor } from '../../utils/profitColor';
+import { CASH_DISPLAY_LABEL } from '../../config/constants';
 import { HoldingType } from '../../types';
 import type { Investment } from '../../types';
 
@@ -125,7 +126,7 @@ const InvestmentCard: React.FC<InvestmentCardProps> = ({
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <Typography variant="body1" sx={{ fontWeight: 600, color: titleColor }} noWrap>
-                {investment.fundName}
+                {isCash ? CASH_DISPLAY_LABEL : investment.fundName}
               </Typography>
               <Chip
                 label={badgeLabel}
@@ -232,8 +233,7 @@ const InvestmentCard: React.FC<InvestmentCardProps> = ({
               borderColor: 'divider',
             }}
           >
-            <Typography variant="caption" color="text.secondary">持有市值</Typography>
-            <Typography variant="body1" sx={{ fontWeight: 700, color: titleColor }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: titleColor }}>
               {formatCurrency(investment.marketValue)}
             </Typography>
           </Box>

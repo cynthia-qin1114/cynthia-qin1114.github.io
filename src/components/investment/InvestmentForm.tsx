@@ -11,6 +11,7 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import { fundApiService } from '../../services/fundApiService';
+import { DEFAULT_CASH_NAME } from '../../config/constants';
 import { HoldingType } from '../../types';
 import type { Account, Investment, CreateInvestmentDTO } from '../../types';
 
@@ -134,9 +135,12 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({
   };
 
   const isFund = holdingType === HoldingType.FUND;
+  const isCash = holdingType === HoldingType.CASH;
   const canSubmit = isFund
     ? Boolean(fundCode.trim() && shares && costPrice)
-    : Boolean(fundName.trim() && marketValue);
+    : isCash
+      ? Boolean(marketValue)
+      : Boolean(fundName.trim() && marketValue);
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -170,10 +174,10 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({
         data = {
           holdingType: HoldingType.CASH,
           accountId,
-          fundName: fundName.trim(),
+          fundName: fundName.trim() || DEFAULT_CASH_NAME,
           marketValue: parseFloat(marketValue),
           dailyProfit: dailyProfit.trim() === '' ? undefined : parseFloat(dailyProfit),
-          buyDate,
+          buyDate: undefined,
         };
       } else {
         data = {
@@ -355,14 +359,7 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({
           ) : holdingType === HoldingType.CASH ? (
             <>
               <TextField
-                label="产品名称"
-                value={fundName}
-                onChange={(e) => setFundName(e.target.value)}
-                placeholder="如：余额宝 / 零钱通"
-                required
-              />
-              <TextField
-                label="持有市值"
+                label="活期金额"
                 type="number"
                 value={marketValue}
                 onChange={(e) => setMarketValue(e.target.value)}
@@ -370,13 +367,6 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({
                 required
                 InputProps={{ inputProps: { step: '0.01' } }}
                 helperText="单位：元（活期 / 余额类资产金额）"
-              />
-              <TextField
-                label="持有起始日"
-                type="date"
-                value={buyDate}
-                onChange={(e) => setBuyDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
               />
             </>
           ) : (
