@@ -160,6 +160,35 @@ export class InvestmentRepository {
         createdAt: timestamp,
         updatedAt: timestamp,
       };
+    } else if (holdingType === HoldingType.GOLD) {
+      // GOLD：shares=克重，costPrice=成本均价（元/克），用于金价同步重算持有收益
+      const goldShares = dto.shares ?? 0;
+      const goldCostPrice = dto.costPrice ?? 0;
+      const goldMetrics = investmentService.calcWealthMetrics(dto);
+      investment = {
+        id: generateId(),
+        holdingType,
+        accountId,
+        institution: dto.institution,
+        fundCode: '',
+        fundName: dto.fundName,
+        shares: goldShares,
+        costPrice: goldCostPrice,
+        currentPrice: dto.currentPrice ?? 0,
+        costAmount: goldMetrics.costAmount,
+        marketValue: goldMetrics.marketValue,
+        profitLoss: goldMetrics.profitLoss,
+        profitLossRate: goldMetrics.profitLossRate,
+        dailyProfit: goldMetrics.dailyProfit,
+        dailyProfitRate: goldMetrics.dailyProfitRate,
+        holdingProfit: goldMetrics.holdingProfit,
+        holdingProfitRate: goldMetrics.holdingProfitRate,
+        cumulativeProfit: dto.cumulativeProfit,
+        buyDate: dto.buyDate ?? timestamp.split('T')[0],
+        lastSyncAt: dto.lastSyncAt ?? timestamp,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
     } else {
       const metrics = investmentService.calcWealthMetrics(dto);
       investment = {
@@ -298,11 +327,16 @@ export class InvestmentRepository {
         holdingProfitRate: dto.holdingProfitRate ?? existing.holdingProfitRate,
         dailyProfit: dto.dailyProfit ?? existing.dailyProfit,
         dailyProfitRate: dto.dailyProfitRate ?? existing.dailyProfitRate,
+        // 累计收益透传（GOLD/OCR 录入）：dto 无则保留既有值
+        cumulativeProfit: dto.cumulativeProfit ?? existing.cumulativeProfit,
       };
       const metrics = investmentService.calcWealthMetrics(merged);
       updated = {
         ...existing,
         ...dto,
+        // GOLD 成本均价（元/克）：dto 无则保留既有值，确保金价同步能重算持有收益
+        costPrice: dto.costPrice ?? existing.costPrice,
+        cumulativeProfit: dto.cumulativeProfit ?? existing.cumulativeProfit,
         costAmount: metrics.costAmount,
         marketValue: metrics.marketValue,
         profitLoss: metrics.profitLoss,
@@ -416,11 +450,21 @@ export class InvestmentRepository {
     }
     if (investment.holdingType !== HoldingType.GOLD) return;
     const shares = investment.shares ?? 0;
+    const costPrice = investment.costPrice ?? 0;
     const marketValue = revalue ? shares * pricePerGram : (investment.marketValue ?? 0);
+    // 持有收益：按 (currentPrice - costPrice) × shares 重算（仅当有成本&克重）
+    const holdingProfit = (costPrice > 0 && shares > 0)
+      ? (pricePerGram - costPrice) * shares
+      : (investment.holdingProfit ?? investment.profitLoss ?? 0);
+    const holdingProfitRate = (costPrice > 0 && shares > 0)
+      ? ((pricePerGram - costPrice) / costPrice) * 100
+      : (investment.holdingProfitRate ?? investment.profitLossRate ?? 0);
     const updated: Investment = {
       ...investment,
       currentPrice: pricePerGram,
       marketValue,
+      holdingProfit,
+      holdingProfitRate,
       updatedAt: now(),
     };
     await db.investments.put(updated);

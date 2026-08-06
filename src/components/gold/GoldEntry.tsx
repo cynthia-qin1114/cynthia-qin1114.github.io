@@ -38,6 +38,8 @@ const GoldEntry: React.FC<GoldEntryProps> = ({ open, onClose, onSaved }) => {
   const [grams, setGrams] = useState('');
   const [marketValue, setMarketValue] = useState('');
   const [holdingProfit, setHoldingProfit] = useState('');
+  const [costPrice, setCostPrice] = useState('');
+  const [cumulativeProfit, setCumulativeProfit] = useState('');
   const [goldPriceRef, setGoldPriceRef] = useState('');
   const [ocrMatched, setOcrMatched] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -54,6 +56,8 @@ const GoldEntry: React.FC<GoldEntryProps> = ({ open, onClose, onSaved }) => {
       setGrams('');
       setMarketValue('');
       setHoldingProfit('');
+      setCostPrice('');
+      setCumulativeProfit('');
       setGoldPriceRef('');
       setOcrMatched(false);
       setError(null);
@@ -66,6 +70,8 @@ const GoldEntry: React.FC<GoldEntryProps> = ({ open, onClose, onSaved }) => {
     if (prefill.shares !== undefined) setGrams(String(prefill.shares));
     if (prefill.marketValue !== undefined) setMarketValue(String(prefill.marketValue));
     if (prefill.holdingProfit !== undefined) setHoldingProfit(String(prefill.holdingProfit));
+    if (prefill.costPrice !== undefined) setCostPrice(String(prefill.costPrice));
+    if (prefill.cumulativeProfit !== undefined) setCumulativeProfit(String(prefill.cumulativeProfit));
     if (prefill.currentPrice !== undefined) setGoldPriceRef(String(prefill.currentPrice));
   };
 
@@ -90,6 +96,8 @@ const GoldEntry: React.FC<GoldEntryProps> = ({ open, onClose, onSaved }) => {
         shares: grams ? Number(grams) : 0,
         marketValue: marketValue ? Number(marketValue) : 0,
         holdingProfit: holdingProfit ? Number(holdingProfit) : 0,
+        costPrice: costPrice ? Number(costPrice) : 0,
+        cumulativeProfit: cumulativeProfit ? Number(cumulativeProfit) : undefined,
         currentPrice: goldPriceRef ? Number(goldPriceRef) : 0,
       };
       await createInvestment(dto);
@@ -154,6 +162,30 @@ const GoldEntry: React.FC<GoldEntryProps> = ({ open, onClose, onSaved }) => {
           helperText="持仓金额以您填写的市值为准，金价仅作展示参考"
         />
         <TextField label="持有收益 (元)" type="number" size="small" value={holdingProfit} onChange={(e) => setHoldingProfit(e.target.value)} fullWidth sx={{ mb: 1 }} />
+        <TextField
+          label="累计收益 (元)"
+          type="number"
+          size="small"
+          value={cumulativeProfit}
+          onChange={(e) => setCumulativeProfit(e.target.value)}
+          fullWidth
+          sx={{ mb: 1 }}
+          placeholder="可留空"
+          InputProps={{ inputProps: { step: '0.01' } }}
+        />
+        <TextField
+          label="成本均价 (元/克)"
+          type="number"
+          size="small"
+          value={costPrice}
+          onChange={(e) => setCostPrice(e.target.value)}
+          fullWidth
+          sx={{ mb: 1 }}
+          placeholder="如：450.00"
+          required
+          InputProps={{ inputProps: { step: '0.01' } }}
+          helperText="用于金价同步时自动重算持有收益"
+        />
         <TextField label="金价参考 (元/克，可选)" type="number" size="small" value={goldPriceRef} onChange={(e) => setGoldPriceRef(e.target.value)} fullWidth sx={{ mb: 1 }} />
 
         {error && (

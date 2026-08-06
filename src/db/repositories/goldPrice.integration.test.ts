@@ -120,6 +120,56 @@ describe('applyGoldPrice — 余额铁律', () => {
     const acc = await accountRepository.getById('acc_cmb');
     expect(acc!.balance).toBeCloseTo(4700 + 2350, 2);
   });
+
+  it('REFERENCE_ONLY + 成本均价：持有收益按 (金价-成本)×克重 重算，市值不变', async () => {
+    // 模拟招行黄金账户：2.0000 克，成本均价 450.00 元/克，手填市值 900.00，原持有收益 50.00
+    await db.accounts.add(makeAccount('acc_ref', 0));
+    await db.investments.add(
+      makeGold({ id: 'gRef', accountId: 'acc_ref', shares: 2.0000, costPrice: 450.00, marketValue: 900.00, holdingProfit: 50.00 }),
+    );
+
+    const currentPrice = 480.00; // 实时买入价
+    await investmentRepository.applyGoldPrice('gRef', currentPrice, false); // revalue=false
+
+    const inv = await db.investments.get('gRef');
+    // 市值保持用户录入（revalue=false 不动 marketValue）
+    expect(inv!.marketValue).toBe(900.00);
+    // 金价更新为实时价
+    expect(inv!.currentPrice).toBeCloseTo(currentPrice, 4);
+    // 持有收益按成本重算：(480.00 - 450.00) × 2.0000
+    const expectedHolding = (currentPrice - 450.00) * 2.0000;
+    expect(inv!.holdingProfit).toBeCloseTo(expectedHolding, 2);
+    // 持有收益率 = (480.00 - 450.00) / 450.00 × 100
+    const expectedRate = ((currentPrice - 450.00) / 450.00) * 100;
+    expect(inv!.holdingProfitRate).toBeCloseTo(expectedRate, 2);
+
+    // 余额铁律：revalue=false 不触发 recalcBalanceFromHoldings，余额保持初始 0
+    const acc = await accountRepository.getById('acc_ref');
+    expect(acc!.balance).toBe(0);
+  });
+
+  it('REVALUE + 成本均价：市值=克重×金价，持有收益同步按成本重算', async () => {
+    await db.accounts.add(makeAccount('acc_rev', 0));
+    await db.investments.add(
+      makeGold({ id: 'gRev', accountId: 'acc_rev', shares: 2.0000, costPrice: 450.00, marketValue: 900.00, holdingProfit: 50.00 }),
+    );
+
+    const currentPrice = 480.00;
+    await investmentRepository.applyGoldPrice('gRev', currentPrice, true);
+
+    const inv = await db.investments.get('gRev');
+    expect(inv!.currentPrice).toBeCloseTo(currentPrice, 4);
+    const expectedMv = 2.0000 * currentPrice; // 2.0000 × 480.00
+    expect(inv!.marketValue).toBeCloseTo(expectedMv, 2);
+    const expectedHolding = (currentPrice - 450.00) * 2.0000;
+    expect(inv!.holdingProfit).toBeCloseTo(expectedHolding, 2);
+    const expectedRate = ((currentPrice - 450.00) / 450.00) * 100;
+    expect(inv!.holdingProfitRate).toBeCloseTo(expectedRate, 2);
+
+    // 余额铁律：balance = Σ marketValue = 2.0000×480.00
+    const acc = await accountRepository.getById('acc_rev');
+    expect(acc!.balance).toBeCloseTo(expectedMv, 2);
+  });
 });
 
 // 引用 GoldRecalcStrategy 以确保枚举与仓储常量一致（类型守卫）

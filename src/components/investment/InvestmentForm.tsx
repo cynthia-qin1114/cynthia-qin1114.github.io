@@ -57,6 +57,7 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({
   const [marketValue, setMarketValue] = useState('');
   const [dailyProfit, setDailyProfit] = useState('');
   const [holdingProfit, setHoldingProfit] = useState('');
+  const [cumulativeProfit, setCumulativeProfit] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [fetchingFund, setFetchingFund] = useState(false);
 
@@ -78,6 +79,9 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({
           ? String(investment.holdingProfit)
           : String(investment.profitLoss),
       );
+      setCumulativeProfit(
+        investment.cumulativeProfit !== undefined ? String(investment.cumulativeProfit) : '',
+      );
     } else if (prefillData) {
       setHoldingType(prefillData.holdingType ?? HoldingType.FUND);
       setAccountId(prefillData.accountId || DEFAULT_ACCOUNT_ID);
@@ -93,6 +97,7 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({
       setMarketValue(prefillData.marketValue !== undefined ? String(prefillData.marketValue) : '');
       setDailyProfit(prefillData.dailyProfit !== undefined ? String(prefillData.dailyProfit) : '');
       setHoldingProfit(prefillData.holdingProfit !== undefined ? String(prefillData.holdingProfit) : '');
+      setCumulativeProfit(prefillData.cumulativeProfit !== undefined ? String(prefillData.cumulativeProfit) : '');
       if ((prefillData.holdingType ?? HoldingType.FUND) === HoldingType.FUND && prefillData.fundCode?.trim()) {
         void handleFetchFund(prefillData.fundCode.trim());
       }
@@ -109,6 +114,7 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({
       setMarketValue('');
       setDailyProfit('');
       setHoldingProfit('');
+      setCumulativeProfit('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [investment, prefillData, open]);
@@ -172,6 +178,9 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({
           marketValue: parseFloat(marketValue),
           dailyProfit: dailyProfit.trim() === '' ? undefined : parseFloat(dailyProfit),
           holdingProfit: holdingProfit.trim() === '' ? undefined : parseFloat(holdingProfit),
+          // 成本均价必填（默认 0）：让金价同步能按 (currentPrice-costPrice)*shares 重算持有收益
+          costPrice: parseFloat(costPrice) || 0,
+          cumulativeProfit: cumulativeProfit.trim() === '' ? undefined : parseFloat(cumulativeProfit),
           currentPrice: currentPrice.trim() === '' ? 0 : parseFloat(currentPrice),
           buyDate,
         };
@@ -367,6 +376,30 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({
                 onChange={(e) => setHoldingProfit(e.target.value)}
                 placeholder="正为盈，负为亏，可留空"
                 InputProps={{ inputProps: { step: '0.01' } }}
+              />
+              <TextField
+                label="累计收益 (元)"
+                type="number"
+                size="small"
+                value={cumulativeProfit}
+                onChange={(e) => setCumulativeProfit(e.target.value)}
+                fullWidth
+                sx={{ mb: 1 }}
+                placeholder="可留空"
+                InputProps={{ inputProps: { step: '0.01' } }}
+              />
+              <TextField
+                label="成本均价 (元/克)"
+                type="number"
+                size="small"
+                value={costPrice}
+                onChange={(e) => setCostPrice(e.target.value)}
+                fullWidth
+                sx={{ mb: 1 }}
+                placeholder="如：450.00"
+                required
+                InputProps={{ inputProps: { step: '0.01' } }}
+                helperText="用于金价同步时自动重算持有收益"
               />
               <TextField
                 label="金价参考 (元/克，可选)"

@@ -16,7 +16,7 @@ export function useGoldPriceScheduler(onSynced?: () => void): void {
   const sync = async () => {
     const price = await goldPriceService.getGoldPrice();
     if (!price) return;
-    // 持仓金额以用户录入市值为准，金价仅更新展示参考 currentPrice，绝不重算市值
+    // revalue=false 以保持用户录入的市值不变；但 holdingProfit 仍按 (currentPrice - costPrice) * shares 重算
     const revalue = false;
     const all = await investmentRepository.getAll();
     for (const inv of all) {
