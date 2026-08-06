@@ -67,7 +67,7 @@ export interface WealthSyncOcrPayload {
  * WealthSyncOcrButton — 资产同步录入向导（三步）
  *
  * 步骤 1：选择归属账户（AccountPickerDialog）
- * 步骤 2：选择截图类型（资产分布 / 理财持仓 / 基金持仓）
+ * 步骤 2：选择截图类型（资产分布录入 / 理财录入 / 基金录入）
  * 步骤 3：拍照 / 选图 → OCR 识别 → 解析 → onResult 回传
  */
 interface WealthSyncOcrButtonProps {
@@ -245,9 +245,9 @@ const WealthSyncOcrButton: React.FC<WealthSyncOcrButtonProps> = ({ accounts, onR
     desc: string;
     icon: React.ReactNode;
   }[] = [
-    { type: 'ASSET', label: '资产分布', desc: '总资产/理财/活期/基金 概览截图', icon: <PieChartIcon color="primary" /> },
-    { type: 'WEALTH', label: '理财 / 基金持仓', desc: '中行/招行/支付宝 持仓明细（多条）', icon: <SavingsIcon color="primary" /> },
-    { type: 'FUND', label: '基金持仓', desc: '公募基金持仓（可自动刷净值）', icon: <ShowChartIcon color="primary" /> },
+    { type: 'ASSET', label: '资产分布录入', desc: '总资产/理财/活期/基金 概览截图（自动拆分活期与理财）', icon: <PieChartIcon color="primary" /> },
+    { type: 'WEALTH', label: '理财录入', desc: '中行/招行/支付宝 理财持仓（多条批量确认）', icon: <SavingsIcon color="primary" /> },
+    { type: 'FUND', label: '基金录入', desc: '公募基金持仓（可自动刷净值）', icon: <ShowChartIcon color="primary" /> },
   ];
 
   return (
