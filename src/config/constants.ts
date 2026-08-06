@@ -112,10 +112,10 @@ export const SERIF_FONT =
 
 /** 资产类别分组固定顺序（投资列表分组、向导确认均按此序） */
 export const CATEGORY_GROUP_ORDER: HoldingType[] = [
+  HoldingType.CASH,
   HoldingType.FUND,
   HoldingType.WEALTH,
   HoldingType.GOLD,
-  HoldingType.CASH,
 ];
 
 /**

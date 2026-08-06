@@ -4,7 +4,7 @@
  *
  * 仅验证 UI 分组行为，不触碰 repository / service / store / account 等口径层。
  * 覆盖关键行为契约：
- *   1) 分组固定顺序 FUND → WEALTH → GOLD → CASH（按 CATEGORY_GROUP_ORDER）
+ *   1) 分组固定顺序 CASH → FUND → WEALTH → GOLD（按 CATEGORY_GROUP_ORDER）
  *   2) 组内持仓按 marketValue 降序
  *   3) 空组动态隐藏（无 GOLD / 无 CASH 时不渲染对应组头）
  *   4) CASH 纳入「现金（活期）」组，小计 = Σ(CASH marketValue)
@@ -63,7 +63,7 @@ function getHeaderBox(titleText: string): HTMLElement {
 }
 
 describe('需求③·分组固定顺序 (契约1)', () => {
-  it('四种类型齐全时，组头顺序固定为 基金 → 理财 → 黄金 → 现金（活期）', () => {
+  it('四种类型齐全时，组头顺序固定为 现金（活期） → 基金 → 理财 → 黄金', () => {
     const investments = [
       makeInvestment({ id: 'c1', holdingType: HoldingType.CASH, fundName: '活期A', marketValue: 10 }),
       makeInvestment({ id: 'g1', holdingType: HoldingType.GOLD, fundName: '黄金A', marketValue: 20 }),
@@ -77,9 +77,9 @@ describe('需求③·分组固定顺序 (契约1)', () => {
     const gold = getGroupHeaderTitle('黄金');
     const cash = getGroupHeaderTitle('现金（活期）');
 
+    expect(isBefore(cash, fund)).toBe(true);
     expect(isBefore(fund, wealth)).toBe(true);
     expect(isBefore(wealth, gold)).toBe(true);
-    expect(isBefore(gold, cash)).toBe(true);
   });
 });
 
