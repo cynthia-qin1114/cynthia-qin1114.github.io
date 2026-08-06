@@ -70,28 +70,26 @@ const OverviewPage: React.FC = () => {
           mb: 2,
           position: 'relative',
           overflow: 'hidden',
-          background: 'linear-gradient(135deg, #1D4ED8 0%, #2563EB 48%, #06B6D4 100%)',
-          color: 'white',
-          border: '1px solid rgba(255,255,255,0.14)',
-          boxShadow: '0 12px 38px rgba(37,99,235,0.38), inset 0 1px 0 rgba(255,255,255,0.20)',
+          background: 'linear-gradient(160deg, #FCFAF5 0%, #F4EEDF 100%)',
+          color: '#211F1A',
+          border: '1px solid rgba(156,107,46,0.22)',
+          boxShadow: '0 1px 2px rgba(33,31,26,0.05), 0 10px 28px rgba(33,31,26,0.08)',
         }}
       >
         <Box className="hero-glow" sx={{ zIndex: 0 }} />
         <CardContent sx={{ py: 3, position: 'relative', zIndex: 1 }}>
-          <Typography variant="caption" sx={{ opacity: 0.85, letterSpacing: '0.04em' }}>
+          <Typography variant="caption" sx={{ color: '#9C6B2E', fontWeight: 600, letterSpacing: '0.06em' }}>
             净资产
           </Typography>
           <Typography
             variant="h4"
+            className="serif-figure"
             sx={{
-              fontWeight: 800,
+              fontWeight: 600,
               mt: 0.5,
               mb: 2,
-              letterSpacing: '-0.02em',
-              background: 'linear-gradient(90deg, #FFFFFF 0%, #CFFAFE 100%)',
-              WebkitBackgroundClip: 'text',
-              backgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
+              letterSpacing: '-0.01em',
+              color: '#211F1A',
             }}
           >
             {formatCurrency(netAssets)}

@@ -41,12 +41,12 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
             textAlign: 'center',
             marginTop: 60,
             minHeight: '100vh',
-            background: '#0B1120',
-            color: '#F1F5F9',
+            background: '#F2EDE3',
+            color: '#211F1A',
           }}
         >
-          <h2 style={{ color: '#F1F5F9' }}>应用出现错误</h2>
-          <p style={{ color: '#94A3B8', marginTop: 8 }}>{this.state.error?.message ?? '未知错误'}</p>
+          <h2 style={{ color: '#211F1A' }}>应用出现错误</h2>
+          <p style={{ color: '#6E685C', marginTop: 8 }}>{this.state.error?.message ?? '未知错误'}</p>
           <button
             onClick={() => {
               this.setState({ hasError: false, error: null });
@@ -57,10 +57,10 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
               padding: '8px 24px',
               borderRadius: 8,
               border: 'none',
-              backgroundColor: '#2563EB',
-              color: '#fff',
+              backgroundColor: '#9C6B2E',
+              color: '#FBF8F1',
               cursor: 'pointer',
-              boxShadow: '0 0 20px rgba(37,99,235,0.4)',
+              boxShadow: '0 2px 10px rgba(156,107,46,0.3)',
             }}
           >
             重新加载

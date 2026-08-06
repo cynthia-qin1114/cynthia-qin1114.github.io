@@ -1,37 +1,37 @@
 import { createTheme } from '@mui/material/styles';
-import { COLORS } from './constants';
+import { COLORS, SERIF_FONT } from './constants';
 
 /**
- * MUI 主题配置 — 暗色科技风（深海军蓝底 + 霓虹青光晕 + 玻璃拟态卡片）
- * 主色：科技蓝 #2563EB；霓虹青 #06B6D4；暗底高对比文本；发光边框；柔和深色阴影。
- * palette.mode='dark'；背景/文本/分隔线用暗色值；统一圆角与等宽数字字体。
+ * MUI 主题配置 — 暖光纸感·私人银行风（暖纸底 + 深墨字 + 哑光黄铜金）
+ * 抛弃深色霓虹/玻璃拟态：改用 warm paper 背景、墨色高对比文本、黄铜金强调、
+ * 细发丝边 + 克制柔和阴影、衬线展示数字（私人银行签名感）。
  */
 const theme = createTheme({
   palette: {
-    mode: 'dark',
+    mode: 'light',
     primary: {
       main: COLORS.PRIMARY,
       light: COLORS.PRIMARY_LIGHT,
       dark: COLORS.PRIMARY_DARK,
-      contrastText: '#FFFFFF',
+      contrastText: '#FBF8F1',
     },
     secondary: {
       main: COLORS.INVEST,
-      light: '#FFB74D',
-      dark: '#F57C00',
-      contrastText: '#FFFFFF',
+      light: '#C0904A',
+      dark: '#7E561F',
+      contrastText: '#FBF8F1',
     },
     success: {
       main: COLORS.INCOME,
-      light: '#81C784',
-      dark: '#388E3C',
-      contrastText: '#FFFFFF',
+      light: '#5B9B75',
+      dark: '#1F5B3A',
+      contrastText: '#FBF8F1',
     },
     error: {
       main: COLORS.EXPENSE,
-      light: '#E57373',
-      dark: '#D32F2F',
-      contrastText: '#FFFFFF',
+      light: '#C9695C',
+      dark: '#8C2A20',
+      contrastText: '#FBF8F1',
     },
     background: {
       default: COLORS.BACKGROUND,
@@ -44,8 +44,9 @@ const theme = createTheme({
     divider: COLORS.DIVIDER,
   },
   typography: {
-    fontFamily: '"Inter", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif',
-    h4: { fontWeight: 700 },
+    fontFamily:
+      '"Inter", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif',
+    h4: { fontWeight: 600, fontFamily: SERIF_FONT, letterSpacing: '-0.01em' },
     h5: { fontWeight: 600 },
     h6: { fontWeight: 600 },
     subtitle1: { fontWeight: 600 },
@@ -59,7 +60,7 @@ const theme = createTheme({
     },
   },
   shape: {
-    borderRadius: 14,
+    borderRadius: 12,
   },
   components: {
     MuiButton: {
@@ -70,23 +71,29 @@ const theme = createTheme({
           boxShadow: 'none',
         },
         containedPrimary: {
-          // 发光主按钮
-          boxShadow: '0 0 20px rgba(37,99,235,0.4)',
-          transition: 'box-shadow 0.25s ease, transform 0.2s ease',
+          // 哑光黄铜主按钮：克制阴影 + hover 微下沉，无霓虹发光
+          background: `linear-gradient(180deg, ${COLORS.BRASS} 0%, ${COLORS.PRIMARY} 100%)`,
+          color: '#FBF8F1',
+          boxShadow: '0 2px 8px rgba(156,107,46,0.28)',
+          transition: 'box-shadow 0.2s ease, transform 0.15s ease, filter 0.2s ease',
           '&:hover': {
-            boxShadow: '0 0 28px rgba(37,99,235,0.65)',
+            boxShadow: '0 4px 14px rgba(156,107,46,0.36)',
+            filter: 'brightness(1.04)',
             transform: 'translateY(-1px)',
+          },
+          '&:active': {
+            transform: 'translateY(0)',
           },
         },
         contained: {
           boxShadow: 'none',
         },
         outlinedPrimary: {
-          borderColor: 'rgba(37,99,235,0.5)',
+          borderColor: 'rgba(156,107,46,0.45)',
+          color: COLORS.PRIMARY_DARK,
           '&:hover': {
             borderColor: COLORS.PRIMARY,
-            boxShadow: '0 0 16px rgba(37,99,235,0.3)',
-            background: 'rgba(37,99,235,0.08)',
+            background: 'rgba(156,107,46,0.08)',
           },
         },
       },
@@ -95,12 +102,11 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 16,
-          // 真玻璃拟态：半透明面 + 背景模糊 + 顶部高光 + 霓虹细边
-          background: 'rgba(30,41,59,0.55)',
-          backdropFilter: 'blur(14px)',
-          WebkitBackdropFilter: 'blur(14px)',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08), 0 8px 30px rgba(0,0,0,0.45)',
-          border: '1px solid rgba(148,163,184,0.14)',
+          // 暖纸卡片：暖白面 + 发丝边 + 柔和投影（无玻璃模糊、无霓虹）
+          background: COLORS.SURFACE,
+          backgroundImage: 'none',
+          boxShadow: '0 1px 2px rgba(33,31,26,0.04), 0 8px 24px rgba(33,31,26,0.06)',
+          border: '1px solid rgba(33,31,26,0.07)',
         },
       },
     },
@@ -110,7 +116,6 @@ const theme = createTheme({
           borderRadius: 16,
         },
         root: {
-          // 关闭 MUI 暗色 Paper 默认渐变，露出干净的玻璃面底色
           backgroundImage: 'none',
         },
       },
@@ -124,16 +129,17 @@ const theme = createTheme({
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
-          // 暗色边框 + focus 发光
+          // 暖灰边框 + focus 黄铜细环
+          backgroundColor: '#FCFAF5',
           '& fieldset': {
-            borderColor: 'rgba(148,163,184,0.25)',
+            borderColor: 'rgba(33,31,26,0.16)',
           },
           '&:hover fieldset': {
-            borderColor: 'rgba(37,99,235,0.5)',
+            borderColor: 'rgba(156,107,46,0.5)',
           },
           '&.Mui-focused fieldset': {
             borderColor: COLORS.PRIMARY,
-            boxShadow: '0 0 0 3px rgba(37,99,235,0.18)',
+            boxShadow: '0 0 0 3px rgba(156,107,46,0.14)',
           },
         },
       },
@@ -142,12 +148,10 @@ const theme = createTheme({
       styleOverrides: {
         paper: {
           borderRadius: 20,
-          background: 'rgba(30,41,59,0.94)',
+          background: COLORS.SURFACE,
           backgroundImage: 'none',
-          border: '1px solid rgba(37,99,235,0.25)',
-          boxShadow: '0 0 40px rgba(37,99,235,0.18), 0 24px 60px rgba(0,0,0,0.6)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
+          border: '1px solid rgba(156,107,46,0.22)',
+          boxShadow: '0 24px 60px rgba(33,31,26,0.18)',
         },
       },
     },
@@ -155,11 +159,11 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           height: 60,
-          borderTop: '1px solid rgba(37,99,235,0.18)',
-          backgroundColor: 'rgba(17,24,39,0.9)',
+          borderTop: '1px solid rgba(33,31,26,0.08)',
+          backgroundColor: 'rgba(247,243,234,0.92)',
           backdropFilter: 'blur(10px)',
           WebkitBackdropFilter: 'blur(10px)',
-          boxShadow: '0 -2px 18px rgba(0,0,0,0.45), 0 0 16px rgba(37,99,235,0.12)',
+          boxShadow: '0 -1px 0 rgba(33,31,26,0.04), 0 -6px 20px rgba(33,31,26,0.05)',
         },
       },
     },
@@ -169,6 +173,13 @@ const theme = createTheme({
           borderRadius: 8,
           fontSize: 12,
           padding: '4px 8px',
+        },
+      },
+    },
+    MuiListItemButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 10,
         },
       },
     },

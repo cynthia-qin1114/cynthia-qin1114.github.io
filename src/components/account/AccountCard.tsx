@@ -33,7 +33,7 @@ const AccountCard: React.FC<AccountCardProps> = ({ account, onClick, onMenuClick
         '&:hover': onClick
           ? {
               boxShadow:
-                '0 14px 32px rgba(0,0,0,0.45), 0 0 18px rgba(37,99,235,0.25)',
+                '0 1px 2px rgba(33,31,26,0.05), 0 10px 26px rgba(33,31,26,0.10)',
               transform: 'translateY(-2px)',
             }
           : {},
@@ -44,7 +44,7 @@ const AccountCard: React.FC<AccountCardProps> = ({ account, onClick, onMenuClick
       <Box
         sx={{
           height: 3,
-          background: 'linear-gradient(90deg,#2563EB 0%,#06B6D4 100%)',
+          background: 'linear-gradient(90deg,#B8894A 0%,#9C6B2E 100%)',
         }}
       />
       <CardContent sx={{ display: 'flex', alignItems: 'center', py: 2, '&:last-child': { pb: 2 } }}>

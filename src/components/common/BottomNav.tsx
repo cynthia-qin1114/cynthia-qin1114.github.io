@@ -55,21 +55,20 @@ const BottomNav: React.FC = () => {
             fontSize: '0.7rem',
           },
           '& .MuiBottomNavigationAction-root': {
-            color: 'rgba(148,163,184,0.7)',
+            color: 'rgba(33,31,26,0.45)',
             position: 'relative',
             transition: 'color 0.2s ease, transform 0.2s ease',
           },
           '& .Mui-selected': {
-            color: '#22D3EE',
+            color: '#9C6B2E',
           },
           '& .Mui-selected .MuiBottomNavigationAction-label': {
-            color: '#22D3EE',
+            color: '#9C6B2E',
             fontWeight: 700,
           },
           '& .Mui-selected .MuiSvgIcon-root': {
-            filter: 'drop-shadow(0 0 6px rgba(34,211,238,0.9))',
             transform: 'scale(1.15)',
-            transition: 'transform 0.2s ease, filter 0.2s ease',
+            transition: 'transform 0.2s ease',
           },
           '& .MuiBottomNavigationAction-root.Mui-selected::after': {
             content: '""',
@@ -80,8 +79,8 @@ const BottomNav: React.FC = () => {
             width: 22,
             height: 3,
             borderRadius: 2,
-            background: '#22D3EE',
-            boxShadow: '0 0 8px rgba(34,211,238,0.9)',
+            background: '#9C6B2E',
+            boxShadow: 'none',
           },
         }}
       >
