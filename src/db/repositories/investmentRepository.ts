@@ -55,20 +55,33 @@ export class InvestmentRepository {
   }
 
   /**
-   * 按 账户 + 归一化产品名 查找持仓（用于 WEALTH/CASH upsert 幂等）。
+   * 按 账户 + 产品键 查找**所有**匹配持仓（用于 upsert 幂等 + 历史重复清理）。
+   *
+   * 匹配键：
+   * - FUND 且 fundCode 非空 → (accountId, FUND, fundCode)（比名称更稳健）
+   * - 其它 → (accountId, holdingType, 归一化产品名)
    */
-  async findByAccountAndName(
+  async findAllByAccountAndName(
     accountId: string,
     productName: string,
     holdingType?: HoldingType,
-  ): Promise<Investment | undefined> {
-    const target = normalizeProductName(productName);
+    fundCode?: string,
+  ): Promise<Investment[]> {
     const list = await db.investments.where('accountId').equals(accountId).toArray();
-    return list.find(
-      (inv) =>
-        normalizeProductName(inv.fundName) === target &&
-        (holdingType === undefined || inv.holdingType === holdingType),
-    );
+    const target = normalizeProductName(productName);
+    return list.filter((inv) => {
+      if (holdingType !== undefined && inv.holdingType !== holdingType) return false;
+      if (
+        inv.holdingType === HoldingType.FUND &&
+        fundCode &&
+        fundCode.trim() !== '' &&
+        inv.fundCode &&
+        inv.fundCode.trim() !== ''
+      ) {
+        return inv.fundCode.trim() === fundCode.trim();
+      }
+      return normalizeProductName(inv.fundName) === target;
+    });
   }
 
   /**
@@ -190,16 +203,28 @@ export class InvestmentRepository {
   async upsertByAccountAndName(dto: CreateInvestmentDTO): Promise<Investment> {
     const holdingType = dto.holdingType ?? HoldingType.WEALTH;
     const accountId = dto.accountId || DEFAULT_ACCOUNT_ID;
-    const existing = await this.findByAccountAndName(accountId, dto.fundName, holdingType);
+    const matches = await this.findAllByAccountAndName(
+      accountId,
+      dto.fundName,
+      holdingType,
+      dto.fundCode,
+    );
 
-    if (existing) {
-      await this.update(existing.id, {
+    if (matches.length > 0) {
+      // 保留最新一条（matches[0]），其余为历史重复 → 删除清理
+      // 修复：早期手动录入走 create() 留下的同名多条持仓，再录入只会更新其中一条、
+      // 其余陈旧记录残留 → 账户管理页仍显示「多条持仓明细」。
+      const keep = matches[0];
+      await this.update(keep.id, {
         ...dto,
         accountId,
         holdingType,
         lastSyncAt: dto.lastSyncAt ?? now(),
       } as UpdateInvestmentDTO);
-      const updated = await db.investments.get(existing.id);
+      for (const dup of matches.slice(1)) {
+        await this.delete(dup.id);
+      }
+      const updated = await db.investments.get(keep.id);
       return updated as Investment;
     }
 
