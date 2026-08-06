@@ -180,8 +180,12 @@ export class InvestmentRepository {
   }
 
   /**
-   * Upsert 一条 WEALTH/CASH 持仓：同 accountId + 归一化产品名 已存在则整体覆盖，
-   * 否则新建。用于「重新截图覆盖更新」与活期唯一性。
+   * Upsert 一条 WEALTH/CASH/FUND/GOLD 持仓：同 `(accountId, 归一化 fundName, holdingType)`
+   * 已存在则整体覆盖，否则新建。用于：
+   *   - 「重新截图覆盖更新」（OCR 路径）
+   *   - 「账户管理 - 手动录入」快照语义（防多次点击保存叠加累加）
+   * 整个 dto 全字段透传给 update，避免 FUND 录入时 shares/costPrice/currentPrice 等
+   * 没被 update 接收→被 existing 旧值覆盖的 Bug。
    */
   async upsertByAccountAndName(dto: CreateInvestmentDTO): Promise<Investment> {
     const holdingType = dto.holdingType ?? HoldingType.WEALTH;
@@ -190,16 +194,11 @@ export class InvestmentRepository {
 
     if (existing) {
       await this.update(existing.id, {
+        ...dto,
         accountId,
-        fundName: dto.fundName,
-        institution: dto.institution,
-        marketValue: dto.marketValue,
-        dailyProfit: dto.dailyProfit,
-        dailyProfitRate: dto.dailyProfitRate,
-        holdingProfit: dto.holdingProfit,
-        holdingProfitRate: dto.holdingProfitRate,
+        holdingType,
         lastSyncAt: dto.lastSyncAt ?? now(),
-      });
+      } as UpdateInvestmentDTO);
       const updated = await db.investments.get(existing.id);
       return updated as Investment;
     }
