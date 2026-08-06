@@ -5,6 +5,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
+import Autocomplete from '@mui/material/Autocomplete';
 import MenuItem from '@mui/material/MenuItem';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
@@ -12,6 +13,7 @@ import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import { fundApiService } from '../../services/fundApiService';
 import { DEFAULT_CASH_NAME } from '../../config/constants';
+import { combineFundEntries, getUserFundEntries, lookupFundCode } from '../../services/fundCodeDictionary';
 import { HoldingType } from '../../types';
 import type { Account, Investment, CreateInvestmentDTO } from '../../types';
 
@@ -136,6 +138,8 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({
 
   const isFund = holdingType === HoldingType.FUND;
   const isCash = holdingType === HoldingType.CASH;
+  // 基金名自动补全选项：种子表 ∪ 用户历史持仓（已填过代码的基金）
+  const fundOptions = combineFundEntries(getUserFundEntries());
   const canSubmit = isFund
     ? Boolean(fundCode.trim() && shares && costPrice)
     : isCash
@@ -148,11 +152,12 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({
     try {
       let data: CreateInvestmentDTO;
       if (isFund) {
+        const resolvedCode = fundCode.trim() || lookupFundCode(fundName) || '';
         data = {
           holdingType: HoldingType.FUND,
           accountId,
-          fundCode: fundCode.trim(),
-          fundName: fundName.trim() || `基金${fundCode.trim()}`,
+          fundCode: resolvedCode,
+          fundName: fundName.trim() || `基金${resolvedCode}`,
           shares: parseFloat(shares),
           costPrice: parseFloat(costPrice),
           currentPrice: parseFloat(currentPrice) || parseFloat(costPrice),
@@ -255,11 +260,34 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({
                   {fetchingFund ? <CircularProgress size={20} /> : '查询'}
                 </Button>
               </Box>
-              <TextField
-                label="基金名称"
+              <Autocomplete
+                freeSolo
+                options={fundOptions}
+                getOptionLabel={(o) => (typeof o === 'string' ? o : `${o.name}（${o.code}）`)}
                 value={fundName}
-                onChange={(e) => setFundName(e.target.value)}
-                placeholder="如：招商中证白酒指数"
+                onInputChange={(_, val) => setFundName(val)}
+                onChange={(_, val) => {
+                  if (val && typeof val !== 'string' && val.code) {
+                    setFundName(val.name);
+                    setFundCode(val.code);
+                    void handleFetchFund(val.code);
+                  }
+                }}
+                filterOptions={(opts, state) => {
+                  const input = state.inputValue.trim().toLowerCase();
+                  if (!input) return opts;
+                  return opts.filter(
+                    (o) => o.name.toLowerCase().includes(input) || o.code.includes(input),
+                  );
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="基金名称"
+                    placeholder="输入或选择基金名，自动带出代码"
+                  />
+                )}
+                sx={{ width: '100%' }}
               />
               <TextField
                 label="持有份额"

@@ -46,6 +46,7 @@ import {
   toFundPrefills,
 } from '../../services/wealthOcrParser';
 import { parseFundOcrText, toInvestmentPrefill } from '../../services/fundOcrParser';
+import { resolveFundCodesInPrefills, getUserFundEntries } from '../../services/fundCodeDictionary';
 import { HoldingType } from '../../types';
 import type { Account, CreateInvestmentDTO } from '../../types';
 import AccountPickerDialog from './AccountPickerDialog';
@@ -128,13 +129,15 @@ const WealthSyncOcrButton: React.FC<WealthSyncOcrButtonProps> = ({ accounts, onR
     try {
       const text = await ocrService.recognize(file);
       const account = selectedAccount;
+      // 用户字典（来自本地持仓）：OCR 抓不到基金代码时用来补码
+      const userFundEntries = getUserFundEntries();
 
       // 支付宝「基金」持有列表页：无论用户在向导选「理财」还是「基金」录入，
       // 一律按 FUND 处理——否则会误派到理财批量确认对话框（与招行/CITIC 基金同一类坑）。
       // 顶层拦截，确保在 ocrType 分支判定之前生效，避免被 WEALTH 分支的通用打分误胜。
       if (isAlipayFundPage(text)) {
         const parsed = parseAlipayFundOcrText(text);
-        const prefills = toFundPrefills(parsed, account.id);
+        const prefills = resolveFundCodesInPrefills(toFundPrefills(parsed, account.id), userFundEntries);
         onResult({ ocrType: 'FUND', account, prefills, matched: prefills.length > 0, raw: text });
         reset();
         return;
@@ -218,7 +221,7 @@ const WealthSyncOcrButton: React.FC<WealthSyncOcrButtonProps> = ({ accounts, onR
         // 避免错派到 WeALTH 批量确认对话框导致「录入后跳到理财页」的体验错乱。
         if (isCiticFundPage(text)) {
           const parsed = parseCiticFundOcrText(text);
-          const prefills = toFundPrefills(parsed, account.id);
+          const prefills = resolveFundCodesInPrefills(toFundPrefills(parsed, account.id), userFundEntries);
           onResult({ ocrType: 'FUND', account, prefills, matched: prefills.length > 0, raw: text });
           reset();
           return;
@@ -228,7 +231,7 @@ const WealthSyncOcrButton: React.FC<WealthSyncOcrButtonProps> = ({ accounts, onR
         // 单支走 InvestmentForm 预填、多支走 WealthConfirmDialog 批量确认。
         if (isCmbFundPage(text)) {
           const parsed = parseCmbFundOcrText(text);
-          const prefills = toFundPrefills(parsed, account.id);
+          const prefills = resolveFundCodesInPrefills(toFundPrefills(parsed, account.id), userFundEntries);
           onResult({ ocrType: 'FUND', account, prefills, matched: prefills.length > 0, raw: text });
           reset();
           return;
@@ -243,9 +246,13 @@ const WealthSyncOcrButton: React.FC<WealthSyncOcrButtonProps> = ({ accounts, onR
         if (nums.fundCode) prefill.fundCode = nums.fundCode;
         if (nums.shares !== undefined) prefill.shares = nums.shares;
         if (nums.costPrice !== undefined) prefill.costPrice = nums.costPrice;
+        const resolved = resolveFundCodesInPrefills([prefill], userFundEntries);
+        const finalPrefill = resolved[0];
         const matched =
-          Boolean(nums.fundCode) || nums.shares !== undefined || nums.costPrice !== undefined;
-        onResult({ ocrType, account, prefills: [prefill], matched, raw: text });
+          Boolean(finalPrefill.fundCode) ||
+          nums.shares !== undefined ||
+          nums.costPrice !== undefined;
+        onResult({ ocrType, account, prefills: [finalPrefill], matched, raw: text });
       }
       reset();
     } catch (err) {

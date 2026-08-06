@@ -105,6 +105,9 @@ describe('OCR 同步向导·基金录入路由派发（Bug 防回归）', () => 
     expect(payload.prefills.every((p) => p.holdingType === 'FUND')).toBe(true);
     // marketValue 必须来自卡片金额 991.80（不是顶部总金额 29.52）
     expect(payload.prefills[0].marketValue).toBeCloseTo(991.8, 2);
+    // OCR 抓不到基金代码 → 字典自动补码（南方有色金属ETF联接E → 010990）
+    expect(payload.prefills[0].fundName).toContain('南方有色金属');
+    expect(payload.prefills[0].fundCode).toBe('010990');
   });
 
   it('中信证券「公募基金持仓」页：onResult.ocrType 应为 FUND（不是 WEALTH）', async () => {
