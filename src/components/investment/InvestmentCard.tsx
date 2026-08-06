@@ -199,6 +199,24 @@ const InvestmentCard: React.FC<InvestmentCardProps> = ({
           </Box>
         )}
 
+        {/* GOLD 视图专属：成本均价 + 累计收益 */}
+        {isGold && (
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1, mb: 1 }}>
+            <Box sx={{ flex: '1 1 30%' }}>
+              <Typography variant="caption" color="text.secondary">成本均价</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                {investment.costPrice > 0 ? `¥${investment.costPrice.toFixed(2)}/g` : '—'}
+              </Typography>
+            </Box>
+            <Box sx={{ flex: '1 1 30%' }}>
+              <Typography variant="caption" color="text.secondary">累计收益</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: profitColor(investment.cumulativeProfit) }}>
+                {investment.cumulativeProfit !== undefined ? formatCurrency(investment.cumulativeProfit) : '—'}
+              </Typography>
+            </Box>
+          </Box>
+        )}
+
         {/* FUND 视图专属：份额/成本价/当前净值 */}
         {isFund && (
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>

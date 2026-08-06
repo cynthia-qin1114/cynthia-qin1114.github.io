@@ -102,6 +102,12 @@ export interface GoldItemOcrResult {
   marketValue?: number; // 市值（元）
   holdingProfit?: number; // 持有收益（元）
   goldPriceRef?: number; // 金价参考（元/克）
+  /** 成本均价 元/克（OCR 抓招行页「成本均价 X 元/克」） */
+  costPrice?: number;
+  /** 累计收益 元（OCR 抓「累计收益」） */
+  cumulativeProfit?: number;
+  /** 今日收益 元（OCR 抓「今日收益」/「当日收益」） */
+  todayProfit?: number;
 }
 
 /** 招行黄金 OCR 解析结果 */
@@ -129,6 +135,12 @@ export function parseCmbGoldOcrText(text: string): GoldOcrParseResult {
   const marketValue = matchAmountAfterKeyword(raw, ['持仓市值', '市值', '黄金市值', '价值']);
   const holdingProfit = matchAmountAfterKeyword(raw, ['持有收益', '收益', '盈亏']);
   const goldPriceRef = matchAmountAfterKeyword(raw, ['金价', '每克', '克价', '单价']);
+  // 成本均价（元/克）：金价上界 1500，避免误把市值/克重当成本
+  const costPrice = matchAmountAfterKeyword(raw, ['成本均价', '成本价', '均价'], { max: 1500 });
+  // 累计收益：允许负数（用 allowZero，避免 0 被过滤）
+  const cumulativeProfit = matchAmountAfterKeyword(raw, ['累计收益', '累计', '总收益'], { allowZero: true });
+  // 今日收益：允许负数
+  const todayProfit = matchAmountAfterKeyword(raw, ['今日收益', '当日收益', '今日盈亏', '日收益'], { allowZero: true });
 
   // 产品名：首个含「黄金/积存/金条」的短语（去尾部数字金额噪声）
   let productName = '招行黄金';
@@ -145,7 +157,7 @@ export function parseCmbGoldOcrText(text: string): GoldOcrParseResult {
     }
   }
 
-  const items: GoldItemOcrResult[] = [{ productName, grams, marketValue, holdingProfit, goldPriceRef }];
+  const items: GoldItemOcrResult[] = [{ productName, grams, marketValue, holdingProfit, goldPriceRef, costPrice, cumulativeProfit, todayProfit }];
   return { items, raw };
 }
 
@@ -167,6 +179,9 @@ export function toGoldPrefills(
       marketValue: it.marketValue,
       holdingProfit: it.holdingProfit,
       currentPrice: it.goldPriceRef,
+      costPrice: it.costPrice,
+      cumulativeProfit: it.cumulativeProfit,
+      dailyProfit: it.todayProfit,
     }));
 }
 

@@ -63,6 +63,27 @@ describe('parseCmbGoldOcrText', () => {
     expect(r.items[0].grams).toBeUndefined();
     expect(r.items[0].marketValue).toBeCloseTo(5800, 2);
   });
+
+  it('识别成本均价（元/克，上界 1500 防误抓市值/克重）', () => {
+    const r = parseCmbGoldOcrText(
+      ['招银黄金积存金', '持仓克重 2.0000 克', '持仓市值 900.00', '成本均价 450.00 元/克'].join('\n'),
+    );
+    expect(r.items[0].costPrice).toBeCloseTo(450.00, 2);
+  });
+
+  it('识别累计收益（allowZero，兼容负数/零）', () => {
+    const r = parseCmbGoldOcrText(
+      ['招银黄金积存金', '持仓市值 900.00', '累计收益 320.50'].join('\n'),
+    );
+    expect(r.items[0].cumulativeProfit).toBeCloseTo(320.50, 2);
+  });
+
+  it('识别今日收益（allowZero，兼容负数/零）', () => {
+    const r = parseCmbGoldOcrText(
+      ['招银黄金积存金', '持仓市值 900.00', '今日收益 12.30'].join('\n'),
+    );
+    expect(r.items[0].todayProfit).toBeCloseTo(12.30, 2);
+  });
 });
 
 describe('toGoldPrefills', () => {
@@ -84,6 +105,24 @@ describe('toGoldPrefills', () => {
     const prefills = toGoldPrefills(parsed, 'acc_cmb');
     expect(prefills[0].currentPrice).toBeUndefined();
     expect(prefills[0].shares).toBeCloseTo(10, 4);
+  });
+
+  it('映射 成本均价/累计收益/今日收益 → costPrice/cumulativeProfit/dailyProfit', () => {
+    const parsed = parseCmbGoldOcrText(
+      [
+        '招银黄金积存金',
+        '持仓克重 2.0000 克',
+        '持仓市值 900.00',
+        '成本均价 450.00 元/克',
+        '累计收益 320.50',
+        '今日收益 12.30',
+      ].join('\n'),
+    );
+    const p = toGoldPrefills(parsed, 'acc_cmb')[0];
+    expect(p.shares).toBeCloseTo(2.0000, 4);
+    expect(p.costPrice).toBeCloseTo(450.00, 2);
+    expect(p.cumulativeProfit).toBeCloseTo(320.50, 2);
+    expect(p.dailyProfit).toBeCloseTo(12.30, 2);
   });
 });
 

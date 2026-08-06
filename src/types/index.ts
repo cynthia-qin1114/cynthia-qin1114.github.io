@@ -122,6 +122,8 @@ export interface Investment {
   dailyProfit?: number;
   /** 当日收益率(%)（可正可负） */
   dailyProfitRate?: number;
+  /** 累计收益金额（元）；GOLD/OCR 录入后可读（如招行「累计收益」） */
+  cumulativeProfit?: number;
   /** 持有收益金额（与 profitLoss 语义一致，冗余显式字段） */
   holdingProfit?: number;
   /** 持有收益率(%)（与 profitLossRate 语义一致） */
@@ -220,6 +222,8 @@ export interface CreateInvestmentDTO {
   dailyProfitRate?: number;
   holdingProfit?: number;
   holdingProfitRate?: number;
+  /** 累计收益金额（元）；GOLD/OCR 录入后可读 */
+  cumulativeProfit?: number;
   /** 最近截图同步时间 */
   lastSyncAt?: string;
 }
@@ -238,6 +242,8 @@ export interface UpdateInvestmentDTO {
   dailyProfitRate?: number;
   holdingProfit?: number;
   holdingProfitRate?: number;
+  /** 累计收益金额（元）；GOLD/OCR 录入后可读 */
+  cumulativeProfit?: number;
   lastSyncAt?: string;
 }
 
