@@ -216,9 +216,9 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({
             }}
             disabled={Boolean(investment)}
           >
+            <ToggleButton value={HoldingType.CASH}>活期</ToggleButton>
             <ToggleButton value={HoldingType.FUND}>基金</ToggleButton>
             <ToggleButton value={HoldingType.WEALTH}>理财</ToggleButton>
-            <ToggleButton value={HoldingType.CASH}>活期</ToggleButton>
             <ToggleButton value={HoldingType.GOLD}>黄金</ToggleButton>
           </ToggleButtonGroup>
 
