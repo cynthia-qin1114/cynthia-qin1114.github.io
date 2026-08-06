@@ -96,9 +96,20 @@ const InvestPage: React.FC = () => {
       return;
     }
 
-    // FUND
+    // FUND：单支走表单预填（用户可在表单里补代码/净值/份额），多支走批量确认对话框
+    // （WealthConfirmDialog 根据 prefills.holdingType 自动把标题改为「确认基金持仓」）。
+    if (prefills.length > 1) {
+      setWealthPayload(payload);
+      setWealthConfirmOpen(true);
+      setOcrHint(matched ? `识别到 ${prefills.length} 支基金，请确认` : '未识别到基金条目，请手动添加');
+      return;
+    }
     setEditInvestment(null);
-    setPrefillData(matched ? prefills[0] : { holdingType: HoldingType.FUND, accountId: account.id, fundName: '' });
+    setPrefillData(
+      matched
+        ? { ...prefills[0], holdingType: HoldingType.FUND }
+        : { holdingType: HoldingType.FUND, accountId: account.id, fundName: '' },
+    );
     setOcrHint(matched ? '已自动识别，请确认或补充信息' : '未能自动识别，请手动填写');
     setFormOpen(true);
   };

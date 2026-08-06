@@ -105,6 +105,8 @@ const AccountDetailDialog: React.FC<AccountDetailDialogProps> = ({
   const [wealthConfirmOpen, setWealthConfirmOpen] = useState(false);
   const [wealthPayload, setWealthPayload] = useState<WealthSyncOcrPayload | null>(null);
   const [ocrHint, setOcrHint] = useState<string | null>(null);
+  // FUND 类 OCR 预填数据（基金录入的解析结果要透传给 InvestmentForm，不再被 WEALTH 硬覆盖）。
+  const [fundPrefill, setFundPrefill] = useState<Partial<CreateInvestmentDTO> | null>(null);
 
   const fetchHoldings = useCallback(async () => {
     if (!account) return;
@@ -119,6 +121,7 @@ const AccountDetailDialog: React.FC<AccountDetailDialogProps> = ({
       setEditing(null);
       setDeleteTarget(null);
       setWealthConfirmOpen(false);
+      setFundPrefill(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, account]);
@@ -155,7 +158,20 @@ const AccountDetailDialog: React.FC<AccountDetailDialogProps> = ({
       }
       return;
     }
-    // FUND
+    // FUND：单支走 InvestmentForm 预填（把 OCR 解析的关键字段透传过去），
+    // 多支走 WealthConfirmDialog 批量确认（标题会按 holdingType=FUND 显示「确认基金持仓」）。
+    if (prefills.length > 1) {
+      setWealthPayload(payload);
+      setWealthConfirmOpen(true);
+      setOcrHint(matched ? `识别到 ${prefills.length} 支基金，请确认` : '未识别到基金条目，请手动添加');
+      return;
+    }
+    setEditing(null);
+    setFundPrefill(
+      matched
+        ? { ...prefills[0], holdingType: HoldingType.FUND }
+        : { holdingType: HoldingType.FUND, accountId: acc?.id ?? '' },
+    );
     setManualOpen(true);
     setOcrHint(matched ? '已自动识别，请确认或补充信息' : '未能自动识别，请手动填写');
   };
@@ -187,6 +203,7 @@ const AccountDetailDialog: React.FC<AccountDetailDialogProps> = ({
   const handleFormClose = () => {
     setManualOpen(false);
     setEditing(null);
+    setFundPrefill(null);
   };
 
   const handleEdit = (h: Investment) => {
@@ -397,13 +414,19 @@ const AccountDetailDialog: React.FC<AccountDetailDialogProps> = ({
         onConfirm={handleWealthConfirm}
       />
 
-      {/* 手动录入 / 编辑表单 */}
+      {/* 手动录入 / 编辑表单 / OCR 基金预填 三态合一 */}
       <InvestmentForm
         open={formOpen}
         investment={editing}
         accounts={accounts}
         prefillData={
-          account && !editing ? { accountId: account.id, holdingType: HoldingType.WEALTH } : null
+          editing
+            ? null
+            : fundPrefill
+            ? fundPrefill
+            : account
+            ? { accountId: account.id, holdingType: HoldingType.WEALTH }
+            : null
         }
         onClose={handleFormClose}
         onSubmit={handleFormSubmit}

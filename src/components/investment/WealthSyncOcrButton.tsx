@@ -201,19 +201,23 @@ const WealthSyncOcrButton: React.FC<WealthSyncOcrButtonProps> = ({ accounts, onR
           raw: text,
         });
       } else {
-        // Bug③ 中信证券「公募基金持仓」列表页：逐支解析，经 WealthConfirmDialog 批量确认
+        // Bug③ 中信证券「公募基金持仓」列表页：逐支解析
+        // 关键：派发 ocrType='FUND'，与用户在向导选择的「基金录入」一致，
+        // 避免错派到 WeALTH 批量确认对话框导致「录入后跳到理财页」的体验错乱。
         if (isCiticFundPage(text)) {
           const parsed = parseCiticFundOcrText(text);
           const prefills = toFundPrefills(parsed, account.id);
-          onResult({ ocrType: 'WEALTH', account, prefills, matched: prefills.length > 0, raw: text });
+          onResult({ ocrType: 'FUND', account, prefills, matched: prefills.length > 0, raw: text });
           reset();
           return;
         }
-        // Bug④ 招商银行「基金持仓」页：单只基金卡片，经 WealthConfirmDialog 批量确认
+        // Bug④ 招商银行「基金持仓」页：单只基金卡片
+        // 同样派发 ocrType='FUND'，由 InvestPage/AccountDetailDialog 决定
+        // 单支走 InvestmentForm 预填、多支走 WealthConfirmDialog 批量确认。
         if (isCmbFundPage(text)) {
           const parsed = parseCmbFundOcrText(text);
           const prefills = toFundPrefills(parsed, account.id);
-          onResult({ ocrType: 'WEALTH', account, prefills, matched: prefills.length > 0, raw: text });
+          onResult({ ocrType: 'FUND', account, prefills, matched: prefills.length > 0, raw: text });
           reset();
           return;
         }
