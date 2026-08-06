@@ -476,6 +476,88 @@ describe('parseAlipayAdvancedFundOcrText — 支付宝进阶理财基金列表�
   });
 });
 
+// ==================== Bug 支付宝「进阶理财」OCR 残缺兜底 ====================
+// 判别降级（持有收益 ≥ 1 或 三短词 ≥ 2）+ 解析器数字顺序兜底：
+// 应对 Tesseract 把红字小字号「持有收益」识别成「持有 收益」/漏字的情况。
+
+describe('isAlipayAdvancedFundPage — 判别降级', () => {
+  it('持有收益 ≥ 1（原有主判据）：fixture 命中', () => {
+    expect(isAlipayAdvancedFundPage(ALIPAY_ADVANCED_FUND_LIST)).toBe(true);
+  });
+
+  it('持有收益 = 0 但同时含「金额」+「持有」+「昨日」中至少 2 短词 → true（兜底）', () => {
+    const t = `< 进阶 理财 客服
+建 信 纳 斯 达 克 100 指 数 (QDII)A 基 金 定 投
+金 额 1,981.17 昨 日 收 益 -7.62 持 有 收 益 +218.69
+广 发 中 证 军 工 基 金
+金 额 871.09 昨 日 -13.98`;
+    // 命中「金额」+「昨日」+「持有」三个短词 → 命中数=3 → true
+    expect(isAlipayAdvancedFundPage(t)).toBe(true);
+  });
+
+  it('持有收益 = 0 且只命中「昨日」+「持有」两短词 → true', () => {
+    const t = `< 进阶 理财
+昨 日 收 益 +31.56 持 有 收 益 +200.62
+昨 日 收 益 +10.79 持 有 收 益 -113.30`;
+    expect(isAlipayAdvancedFundPage(t)).toBe(true);
+  });
+
+  it('持有收益 = 0 仅命中一短词（如仅「金额」）→ false', () => {
+    const t = `< 进阶 理财
+金 额 1,981.17
+金 额 871.09`;
+    expect(isAlipayAdvancedFundPage(t)).toBe(false);
+  });
+
+  it('缺「进阶理财」标题 → false', () => {
+    const t = `金 额 1,981.17 昨 日 收 益 -7.62 持 有 收 益 +218.69`;
+    expect(isAlipayAdvancedFundPage(t)).toBe(false);
+  });
+});
+
+describe('parseAlipayAdvancedFundOcrText — 解析鲁棒性', () => {
+  it('残缺文本：把整串「持有收益」吞了，行内只剩 3 个数字 → 解析器仍按 numericLineRe 兜底提取（用于路由打分兜底场景）', () => {
+    // 判别器 `isAlipayAdvancedFundPage` 此时应判 false（3 短词命中数=0），
+    // 但路由 `WealthSyncOcrButton.WEALTH 分支` 已把 advanced 解析器加入五解析器打分池，
+    // 此处验证解析器自身在「标签全失 + 仅数字」场景下仍能稳定输出 ——
+    // 这是用户最新截图场景的最小可用兜底（判别降级不必扩太宽以免误判）。
+    const t = `< 进阶 理财 客服
+建 信 纳 斯 达 克 100 指 数 (QDII)A
+基 金 定 投
+1,981.17 -7.62 +218.69
+广 发 中 证 军 工 ETF 联 接 C
+基 金
+871.09 +13.98 -128.91
+银 华 集 成 电 路 混 合 C
+基 金
+788.71 -41.10 +388.71`;
+    const r = parseAlipayAdvancedFundOcrText(t);
+    expect(r.items.length).toBe(3);
+    expect(r.items[0].productName).toContain('纳斯达克');
+    expect(r.items[0].marketValue).toBeCloseTo(1981.17, 2);
+    expect(r.items[0].dailyProfit).toBeCloseTo(-7.62, 2);
+    expect(r.items[0].holdingProfit).toBeCloseTo(218.69, 2);
+    expect(r.items[1].marketValue).toBeCloseTo(871.09, 2);
+    expect(r.items[1].holdingProfit).toBeCloseTo(-128.91, 2);
+    expect(r.items[2].holdingProfit).toBeCloseTo(388.71, 2);
+  });
+
+  it('只有「金额」+「持有」短词，无完整「持有收益」标签 → 仍能解析', () => {
+    const t = `< 进阶 理财
+建 信 A 基 金
+金 额 1,000.00 持 有 +50.00`;
+    const r = parseAlipayAdvancedFundOcrText(t);
+    expect(r.items.length).toBe(1);
+    expect(r.items[0].marketValue).toBeCloseTo(1000, 2);
+    expect(r.items[0].holdingProfit).toBeCloseTo(50, 2);
+  });
+
+  it('完整 fixture 6 条全解析（回归）', () => {
+    const r = parseAlipayAdvancedFundOcrText(ALIPAY_ADVANCED_FUND_LIST);
+    expect(r.items.length).toBe(6);
+  });
+});
+
 // ==================== Bug① 中国银行「资产管理」资产总览页 ====================
 
 describe('isBocAssetsPage', () => {

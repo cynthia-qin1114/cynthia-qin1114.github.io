@@ -519,14 +519,26 @@ export function toAlipayTotalAssetsPrefills(
 
 /**
  * 是否为支付宝「进阶理财」基金持仓列表页。
- * 判别特征：标题「进阶理财」+ 多条「金额…昨日收益…持有收益」指标行（持有收益出现 ≥ 2 次）。
+ * 判别特征：标题「进阶理财」+ 至少 1 个「持有收益」或（金额+昨日+持有）三标签至少出现 2 个。
  * 与「总资产」页区分：总资产页不含「持有收益」关键词。
+ *
+ * 关键坑（OCR 残缺兜底）：Tesseract 识别支付宝红字小字号「持有收益 +200.62」时，
+ * 经常将「持有收益」四字识别为「持有 收益」/「持 有 收益」/漏字。一旦 6 条里
+ * 「持有收益」只识别出 0-1 个，原 ≥ 2 阈值会直接判否，导致整页走错解析器。
+ * 现放宽为：主判据「持有收益 ≥ 1」+ 兜底「(金额 / 昨日收益 / 持有收益/持有) 三个短词至少 2 个」。
  */
 export function isAlipayAdvancedFundPage(text: string): boolean {
   const t = normalizeOcrText(text ?? '');
   if (!/进阶理财/.test(t)) return false;
+  // 主判据：识别到 ≥ 1 个「持有收益」
   const holdProfitCount = (t.match(/持有收益/g) || []).length;
-  return holdProfitCount >= 2;
+  if (holdProfitCount >= 1) return true;
+  // 兜底：金额/昨日/持有 三个短词/标签中至少出现 2 个
+  const hitCount =
+    Number(/(金额)/.test(t)) +
+    Number(/(昨日|昨日收益)/.test(t)) +
+    Number(/(持有|持有收益|持有收益率)/.test(t));
+  return hitCount >= 2;
 }
 
 /**
@@ -536,6 +548,11 @@ export function isAlipayAdvancedFundPage(text: string): boolean {
  *   [标签行]  基金 定投                         ← 噪声，跳过
  *   [指标行]  金额 1,981.17 昨日收益 -7.62 持有收益 +218.69  ← 金额/当日/持有
  * 逐支提取：产品名、金额(marketValue)、昨日收益(dailyProfit)、持有收益(holdingProfit)。
+ *
+ * 关键坑（OCR 残缺兜底）：Tesseract 识别支付宝红字小字号「持有收益 +200.62」时
+ * 经常将「持有收益」识别为「持有 收益」/「持 有 收益」/漏字。本解析器：
+ *  1. metricRe 触发词除完整标签外，加「持有」「昨日」短词以应对 OCR 残缺。
+ *  2. 三个标签都未识别时，按"行内 ≥ 2 个数字 → 金额/昨日/持有顺序兜底"。
  */
 export function parseAlipayAdvancedFundOcrText(text: string): WealthOcrParseResult {
   const raw = normalizeOcrText(text ?? '');
@@ -544,20 +561,39 @@ export function parseAlipayAdvancedFundOcrText(text: string): WealthOcrParseResu
 
   // 标题/页眉/噪声行（不是持仓）
   const headerRe = /(客服|基金市场|我的持有|排序|金额\s*\/\s*昨日|持有收益\s*\/\s*率|市场解读|自选|更多|进阶理财|资产)/;
-  // 指标行：含 金额 / 昨日收益 / 持有收益 / 收益率
-  const metricRe = /金额|昨日收益|持有收益|收益率/;
+  // 指标行：含 金额 / 昨日收益 / 持有收益 / 收益率 / 持有 / 昨日 短词
+  const metricRe = /金额|昨日收益|持有收益|收益率|昨日|持有/;
+  // 纯数字行（OCR 把标签全吞了）：≥ 2 个带正负号的金额。用于打分兜底路由下的鲁棒解析。
+  // 注：此正则只在本解析器内部触发，不再扩大 `isAlipayAdvancedFundPage` 判别避免误判。
+  const numericLineRe = /[+\-－—]?\s*[¥￥]?\s*[0-9][0-9,]*\.[0-9]+\s+[+\-－—]?\s*[¥￥]?\s*[0-9][0-9,]*\.[0-9]+/;
 
   let pendingName = '';
 
   for (const line of lines) {
     // 标题/页眉：跳过（进阶理财 标题在此被吞，不影响持仓名累计）
-    if (headerRe.test(line) && !metricRe.test(line)) continue;
+    if (headerRe.test(line) && !metricRe.test(line) && !numericLineRe.test(line)) continue;
 
-    // 指标行：提取 金额 / 昨日收益 / 持有收益
-    if (metricRe.test(line)) {
-      const marketValue = matchAmountAfterKeyword(line, ['金额']);
-      const dailyProfit = matchAmountAfterKeyword(line, ['昨日收益']);
-      const holdingProfit = matchAmountAfterKeyword(line, ['持有收益']);
+    // 指标行（含标签）或纯数字行（标签全被 OCR 吞了）：都尝试提取金额/昨日/持有
+    if (metricRe.test(line) || numericLineRe.test(line)) {
+      let marketValue = matchAmountAfterKeyword(line, ['金额']);
+      let dailyProfit = matchAmountAfterKeyword(line, ['昨日收益', '昨日']);
+      let holdingProfit = matchAmountAfterKeyword(line, ['持有收益', '持有']);
+
+      // OCR 残缺兜底：三个标签都未识别时，按"行内 ≥ 2 个数字 → 金额/昨日/持有顺序"取
+      if (marketValue === undefined && dailyProfit === undefined && holdingProfit === undefined) {
+        const nums = extractAmountsInLine(line);
+        if (nums.length >= 3) {
+          marketValue = nums[0];
+          dailyProfit = nums[1];
+          holdingProfit = nums[2];
+        } else if (nums.length === 2) {
+          marketValue = nums[0];
+          holdingProfit = nums[1];
+        } else if (nums.length === 1) {
+          marketValue = nums[0];
+        }
+      }
+
       if (marketValue !== undefined || holdingProfit !== undefined) {
         items.push({
           productName: pendingName || undefined,

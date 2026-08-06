@@ -129,17 +129,29 @@ const WealthSyncOcrButton: React.FC<WealthSyncOcrButtonProps> = ({ accounts, onR
       const account = selectedAccount;
 
       if (ocrType === 'WEALTH') {
-        // 支付宝「进阶理财」基金列表：专用解析器直出（避免与通用解析器在打分上打平误用）。
-        if (isAlipayAdvancedFundPage(text)) {
-          const parsed = parseAlipayAdvancedFundOcrText(text);
-          const prefills = toWealthPrefills(parsed, account.id);
-          onResult({ ocrType, account, prefills, matched: prefills.length > 0, raw: text });
+        // 支付宝「进阶理财」基金列表：专用解析器（提前跑一次，后续打分兜底复用）。
+        const advancedParsed = parseAlipayAdvancedFundOcrText(text);
+        const advancedWithMv = advancedParsed.items.filter(
+          (it) => it.marketValue !== undefined,
+        ).length;
+        // 判别器命中且解析出 ≥ 1 个有效条目 → 专用解析器直出（避免打分误判）
+        if (isAlipayAdvancedFundPage(text) && advancedWithMv > 0) {
+          const prefills = toWealthPrefills(advancedParsed, account.id);
+          onResult({
+            ocrType,
+            account,
+            prefills,
+            matched: prefills.length > 0,
+            raw: text,
+          });
           reset();
           return;
         }
-        // 四解析器自动适配：中行 / 招行列表 / 支付宝基金 / 通用理财。
+        // 五解析器自动适配：中行 / 招行列表 / 支付宝基金 / 通用理财 / 支付宝进阶理财(兜底)。
         // 打分优先「有市值的有效条目数」，其次总条目数——避免通用解析器切出空壳条目误胜。
+        // 进阶理财解析器也参与打分兜底：判别器 false 但解析器仍能切出有效条目时胜出。
         const candidates = [
+          advancedParsed,
           parseBocWealthOcrText(text),
           parseCmbWealthOcrText(text),
           parseAlipayFundOcrText(text),
