@@ -16,6 +16,7 @@ import type { Account } from '../../types';
 import {
   CMB_FUND_HOLDING,
   CITIC_FUND_LIST,
+  ALIPAY_FUND_LIST,
 } from '../../services/__fixtures__/realOcrSamples';
 
 // 避免 jsdom 加载 tesseract.js（OCR 真实引擎）；运行时由 setMockReturnValue 注入返回文本。
@@ -52,9 +53,9 @@ const presetAccount = {
  * jsdom 24 没有原生 DataTransfer；用 array-like 绕过：构造 { 0: file, length: 1, item: i => ... }
  * 通过 Object.defineProperty 覆盖 input.files 的 getter。
  */
-async function uploadFileToStep3() {
+async function uploadFileToStep3(typeLabel = '基金录入') {
   fireEvent.click(screen.getByText('同步资产（截图识别）'));
-  fireEvent.click(screen.getByText('基金录入'));
+  fireEvent.click(screen.getByText(typeLabel));
   await waitFor(() => {
     expect(screen.getByText('选择图片')).toBeInTheDocument();
   });
@@ -127,4 +128,43 @@ describe('OCR 同步向导·基金录入路由派发（Bug 防回归）', () => 
   // 备注：「招行理财列表 → FUND wizard → 仍走 FUND fallback」由 ocrType 派发契约保证；
   //      即使用户在向导选「基金录入」后上传理财图，回退到 parseFundOcrText 仍以 FUND 派发。
   //      WEALTH wizard 行为由 wealthOcrParser.test.ts 覆盖。
+});
+
+describe('OCR 同步向导·支付宝基金列表路由派发（Bug 防回归）', () => {
+  it('选「基金录入」+ 支付宝基金列表：onResult.ocrType 应为 FUND（不是 WEALTH）', async () => {
+    const { ocrService } = await import('../../services/ocrService');
+    vi.mocked(ocrService.recognize).mockResolvedValue(ALIPAY_FUND_LIST);
+
+    const onResult = vi.fn();
+    render(
+      <WealthSyncOcrButton presetAccount={presetAccount} accounts={[]} onResult={onResult} />,
+    );
+
+    await uploadFileToStep3('基金录入');
+
+    await waitFor(() => expect(onResult).toHaveBeenCalledTimes(1));
+    const payload = onResult.mock.calls[0][0] as WealthSyncOcrPayload;
+    expect(payload.ocrType).toBe('FUND'); // 关键防回归点
+    expect(payload.prefills.length).toBeGreaterThan(0);
+    expect(payload.prefills.every((p) => p.holdingType === 'FUND')).toBe(true);
+    // 支付宝基金列表专用解析器应切出多支 + 正确市值（长城短债债券E = 50,000.00）
+    expect(payload.prefills.some((p) => p.marketValue === 50000)).toBe(true);
+  });
+
+  it('选「理财录入」+ 支付宝基金列表：顶层拦截仍派发 FUND（不误派 WEALTH）', async () => {
+    const { ocrService } = await import('../../services/ocrService');
+    vi.mocked(ocrService.recognize).mockResolvedValue(ALIPAY_FUND_LIST);
+
+    const onResult = vi.fn();
+    render(
+      <WealthSyncOcrButton presetAccount={presetAccount} accounts={[]} onResult={onResult} />,
+    );
+
+    await uploadFileToStep3('理财录入');
+
+    await waitFor(() => expect(onResult).toHaveBeenCalledTimes(1));
+    const payload = onResult.mock.calls[0][0] as WealthSyncOcrPayload;
+    expect(payload.ocrType).toBe('FUND'); // 顶层拦截：即便选了「理财录入」也不跳理财页
+    expect(payload.prefills.every((p) => p.holdingType === 'FUND')).toBe(true);
+  });
 });
