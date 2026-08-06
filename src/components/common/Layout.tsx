@@ -36,8 +36,8 @@ const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
               width: 6,
               height: 6,
               borderRadius: '50%',
-              background: '#22D3EE',
-              boxShadow: '0 0 8px rgba(34,211,238,0.9)',
+              background: '#B8894A',
+              boxShadow: '0 0 0 3px rgba(184,137,74,0.18)',
             }}
           />
           <Typography component="span" sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>

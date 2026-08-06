@@ -73,35 +73,40 @@ export const TransactionTypeLabels: Record<string, string> = {
   TRANSFER: '转账',
 };
 
-/** 交易类型颜色映射 */
+/** 交易类型颜色映射（暖色和谐） */
 export const TransactionTypeColors: Record<string, string> = {
-  INCOME: '#4CAF50',
-  EXPENSE: '#F44336',
-  TRANSFER: '#FF9800',
+  INCOME: '#2E7D52',
+  EXPENSE: '#B23A2E',
+  TRANSFER: '#A6782F',
 };
 
 // ==================== 色彩常量 ====================
 
 /**
- * 暗色科技风配色（深海军蓝底 + 霓虹青光晕 + 玻璃拟态）
- * - PRIMARY 保持科技蓝 #2563EB；新增 CYAN 霓虹青 #06B6D4。
- * - BACKGROUND 深空底 #0B1120；SURFACE 玻璃面 #1E293B。
- * - TEXT_* 与 DIVIDER 调为暗底高对比度。
+ * 暖光纸感·私人银行配色（暖纸底 + 深墨字 + 哑光黄铜金）
+ * - 放弃深色霓虹/玻璃拟态；改用 warm paper 底 + 墨色文字 + 黄铜金强调。
+ * - PRIMARY/BRASS 哑光黄铜金（品牌主色）；INCOME 沉静祖母绿；EXPENSE 陶土砖红；
+ *   INVEST 投资金。均为低饱和、暖调，避免霓虹感。
  */
 export const COLORS = {
-  PRIMARY: '#2563EB',
-  CYAN: '#06B6D4',
-  PRIMARY_LIGHT: '#60A5FA',
-  PRIMARY_DARK: '#1D4ED8',
-  INCOME: '#4CAF50',
-  EXPENSE: '#F44336',
-  INVEST: '#FF9800',
-  BACKGROUND: '#0B1120',
-  SURFACE: '#1E293B',
-  TEXT_PRIMARY: '#F1F5F9',
-  TEXT_SECONDARY: '#94A3B8',
-  DIVIDER: 'rgba(148,163,184,0.12)',
+  PRIMARY: '#9C6B2E', // 哑光黄铜金（品牌主色）
+  BRASS: '#B8894A', // 亮黄铜（强调/点缀）
+  PRIMARY_LIGHT: '#B8894A',
+  PRIMARY_DARK: '#7E561F',
+  INCOME: '#2E7D52', // 沉静祖母绿（收益 +）
+  EXPENSE: '#B23A2E', // 陶土砖红（支出 / 亏损 -）
+  INVEST: '#A6782F', // 投资金（财富类）
+  GOLD: '#C8902A', // 黄金类强调
+  BACKGROUND: '#F2EDE3', // 暖纸底
+  SURFACE: '#FCFAF5', // 暖白卡片面
+  TEXT_PRIMARY: '#211F1A', // 暖墨（近黑）
+  TEXT_SECONDARY: '#6E685C', // 暖灰
+  DIVIDER: 'rgba(33,31,26,0.10)', // 暖色发丝分隔线
 } as const;
+
+/** 展示用衬线字体栈（大金额/标题签名感；离线回退 Georgia / 宋体） */
+export const SERIF_FONT =
+  '"Fraunces", "Georgia", "Songti SC", "Noto Serif SC", "STSong", serif';
 
 // ==================== 资产类别分组 ====================
 
@@ -124,10 +129,10 @@ export const HoldingTypeLabels: Record<HoldingType, string> = {
   CASH: '现金（活期）',
 };
 
-/** 分组视觉色（与 COLORS 对齐；GOLD 走黄金/橙金系，CASH 走中性灰非收益色） */
+/** 分组视觉色（暖调：GOLD 黄金系，CASH 暖中性灰非收益色） */
 export const CATEGORY_COLORS: Partial<Record<HoldingType, string>> = {
-  GOLD: '#FFB300',
-  CASH: '#9E9E9E',
+  GOLD: '#C8902A',
+  CASH: '#8A8478',
 };
 
 // ==================== CASH（活期）展示与写库 ====================
@@ -172,21 +177,21 @@ export const CORS_PROXIES = [
 /** 默认CORS代理 */
 export const DEFAULT_CORS_PROXY = CORS_PROXIES[0];
 
-/** 图表颜色列表（彩虹色，保留兼容旧引用） */
+/** 图表颜色列表（暖色和谐板，保留兼容旧引用） */
 export const CHART_COLORS = [
-  '#1976D2', '#4CAF50', '#FF9800', '#F44336', '#9C27B0',
-  '#00BCD4', '#795548', '#607D8B', '#E91E63', '#3F51B5',
-  '#8BC34A', '#CDDC39', '#FFC107', '#FF5722', '#673AB7',
+  '#9C6B2E', '#5B7B5A', '#B5532F', '#C8902A', '#5B7286',
+  '#8A5A6B', '#4E7E73', '#A6782F', '#7E6B9C', '#3F5161',
+  '#6E8B6E', '#C2703F', '#5E7E8A', '#9C5A4A', '#B8894A',
 ];
 
 /**
- * 暗底高亮色板（霓虹蓝/青/teal/紫/粉，暗底对比强）。
- * 用于占比类图表，避免在深海军蓝底上发暗。
+ * 暖色和谐色板（哑光黄铜/鼠尾草绿/陶土/赭石/灰蓝/梅紫…）。
+ * 用于占比类图表，在暖纸底上温和可读、彼此区分度高、不刺眼。
  */
 export const CHART_TECH_COLORS = [
-  '#38BDF8', '#22D3EE', '#2DD4BF', '#818CF8', '#A78BFA',
-  '#34D399', '#60A5FA', '#06B6D4', '#C084FC', '#F472B6',
-  '#4ADE80', '#5EEAD4', '#93C5FD', '#FBBF24',
+  '#9C6B2E', '#5B7B5A', '#B5532F', '#C8902A', '#5B7286',
+  '#8A5A6B', '#4E7E73', '#A6782F', '#7E6B9C', '#B8894A',
+  '#6E8B6E', '#C2703F', '#5E7E8A', '#9C5A4A',
 ];
 
 /** 最近交易显示数量 */
