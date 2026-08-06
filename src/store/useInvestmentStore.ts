@@ -53,10 +53,19 @@ export const useInvestmentStore = create<InvestmentStore>((set) => ({
     }
   },
 
+  /**
+   * 「账户管理 - 手动录入」创建/覆盖一条持仓（快照语义）。
+   * 同 `(accountId, holdingType, 归一化 fundName)` 已存在则**整体覆盖**为最新金额 / 收益，
+   * 避免「录一次存一条、叠加累加」（活期/理财/基金当前真实情况变化时不应保留历史数笔）。
+   * 过程记录（每笔买入、定投扣款）请走「记账」界面 ——
+   * 那里的入账会通过 (accountId, holdingType, fundName) 同步更新对应持仓。
+   * 关键坑：之前手动录入路径走 `create()` 直接新增（不幂等），导致用户多次点击保存
+   * 同账户同活期会被记录为多条并在投资列表叠加显示。改为 upsert 修复此 Bug。
+   */
   createInvestment: async (dto: CreateInvestmentDTO) => {
     set({ loading: true, error: null });
     try {
-      await investmentRepository.create(dto);
+      await investmentRepository.upsertByAccountAndName(dto);
       const investments = await investmentRepository.getAll();
       const summary = await investmentRepository.getSummary();
       set({ investments, summary, loading: false });
