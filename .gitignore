@@ -40,3 +40,6 @@ vite.config.d.ts
 
 # large OCR training data (downloaded at runtime by tesseract.js)
 *.traineddata
+
+# reserved-name stray file (Windows NUL device name) — cannot be tracked/deleted via Win32
+/nul
