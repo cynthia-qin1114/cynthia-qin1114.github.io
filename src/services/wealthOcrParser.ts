@@ -388,6 +388,24 @@ export function parseAlipayFundOcrText(text: string): WealthOcrParseResult {
   return { items, raw };
 }
 
+/**
+ * 是否为支付宝「基金」持有列表页（"基金" tab 下的多支基金持仓，两行一组）。
+ *
+ * 与下列页面严格区分（避免抢走各自的专用解析器 / 走错分支）：
+ *  - 「进阶理财」页（isAlipayAdvancedFundPage）：含「进阶理财」标题 → 排除
+ *  - 「总资产」页（isAlipayTotalAssetsPage）：含「我的资产/活期资产/稳健理财」→ 排除
+ *  - 招行 / 中信证券 基金页：用支付宝列表页专属锚点（列头「名称金额」/ 页脚「自选持有」
+ *    / 分类标签「偏股偏债指数黄金全球」）区分——注意不能用「我的持有」做锚点，
+ *    因为中信证券基金页也含「我的持有」，会误伤。
+ */
+export function isAlipayFundPage(text: string): boolean {
+  const t = normalizeOcrText(text ?? '');
+  if (/进阶理财/.test(t)) return false;
+  if (/我的资产|活期资产|稳健理财/.test(t)) return false;
+  if (!/持有收益/.test(t)) return false;
+  return /名称金额|自选持有|偏股偏债指数黄金全球/.test(t);
+}
+
 // ==================== 支付宝「总资产」页解析器（Bug 2） ====================
 
 /** 支付宝「总资产」页 OCR 解析结果 */

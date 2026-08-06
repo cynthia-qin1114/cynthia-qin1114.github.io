@@ -29,6 +29,7 @@ import {
   isAlipayTotalAssetsPage,
   parseAlipayAdvancedFundOcrText,
   isAlipayAdvancedFundPage,
+  isAlipayFundPage,
   // Bug① 中国银行「资产管理」资产总览页
   isBocAssetsPage,
   parseBocAssetsOcrText,
@@ -127,6 +128,17 @@ const WealthSyncOcrButton: React.FC<WealthSyncOcrButtonProps> = ({ accounts, onR
     try {
       const text = await ocrService.recognize(file);
       const account = selectedAccount;
+
+      // 支付宝「基金」持有列表页：无论用户在向导选「理财」还是「基金」录入，
+      // 一律按 FUND 处理——否则会误派到理财批量确认对话框（与招行/CITIC 基金同一类坑）。
+      // 顶层拦截，确保在 ocrType 分支判定之前生效，避免被 WEALTH 分支的通用打分误胜。
+      if (isAlipayFundPage(text)) {
+        const parsed = parseAlipayFundOcrText(text);
+        const prefills = toFundPrefills(parsed, account.id);
+        onResult({ ocrType: 'FUND', account, prefills, matched: prefills.length > 0, raw: text });
+        reset();
+        return;
+      }
 
       if (ocrType === 'WEALTH') {
         // 支付宝「进阶理财」基金列表：专用解析器（提前跑一次，后续打分兜底复用）。
