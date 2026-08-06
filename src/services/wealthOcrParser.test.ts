@@ -39,6 +39,7 @@ import {
 } from './wealthOcrParser';
 import {
   BOC_WEALTH,
+  BOC_WEALTH_WITH_ADS,
   CMB_WEALTH_LIST,
   ALIPAY_FUND_LIST,
   ALIPAY_TOTAL_ASSETS,
@@ -295,6 +296,20 @@ describe('parseBocWealthOcrText — 中国银行理财列表（真实 OCR）', (
     expect(r.items[1].marketValue).toBeCloseTo(159900, 2);
     expect(r.items[1].dailyProfit).toBeCloseTo(-246.36, 2);
     expect(r.items[1].holdingProfit).toBeCloseTo(14800, 2);
+  });
+
+  it('中行「理财」页（仅 1 支 + 顶部 tab + 净值科普卡）——上下文噪声过滤后只剩 1 条真产品', () => {
+    // 用户最新报告 Bug：之前会切出第 1 条假产品（"<all全区<理财,">" / 16/4/51）
+    // 因为：顶部 tab「交易记录 账户管理 ... 风险测评」+ 科普卡「净值有波动...5 个问题」
+    //   被 OCR 误识为含"参考市值"+"持仓收益"字样的伪标签行，构造出"假产品名+假标签+数字碎片"三行组。
+    // 期望：contextNoiseRe 过滤掉该组，仅解析出真产品（中银理财固收增强A 16.05万 +86.19 +1.53万）。
+    const r = parseBocWealthOcrText(BOC_WEALTH_WITH_ADS);
+    expect(r.items.length).toBe(1);
+    expect(r.items[0].institution).toBe('中银理财');
+    expect(r.items[0].marketValue).toBeCloseTo(160500, 2);  // 16.05 万
+    expect(r.items[0].dailyProfit).toBeCloseTo(86.19, 2);
+    expect(r.items[0].holdingProfit).toBeCloseTo(15300, 2);  // 1.53 万
+    expect(r.items[0].productName).toContain('固收增强');
   });
 });
 

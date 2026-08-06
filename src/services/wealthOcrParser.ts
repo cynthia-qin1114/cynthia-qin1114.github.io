@@ -714,9 +714,26 @@ export function parseBocWealthOcrText(text: string): WealthOcrParseResult {
 
   // 标签行锚点：同一行内出现「参考市值」且出现「持仓收益」
   const labelRe = /参考市值.*持仓收益/;
+  // 上下文噪声词：tab 行（风险测评/账户管理 等）+ 科普卡（净值/波动/投资者关心 等）。
+  // 中行"理财"页顶部 5 个 tab + 1 张科普卡被 OCR 误识后，会形成假"产品名+标签+数字"三行组。
+  const contextNoiseRe = /(风险测评|账户管理|定投计划|已到期|净值.{0,12}波动|近期.{0,8}投资者|投资者.{0,8}关心|常见的\s*\d+\s*个\s*误区)/;
+  const productNameNoiseRe = /[<>「」『』]/;  // 明显 OCR 噪声符号
 
   for (let i = 0; i < lines.length; i++) {
     if (!labelRe.test(lines[i])) continue;
+
+    // 上下文噪声过滤：标签行的上一行/下一行/同行若出现 tab 或科普噪声词，整组跳过。
+    // （噪声音如「交易记录 账户管理 ... 风险测评」/「净值有波动...近期投资者关心的 5 个问题」，
+    //   易被 Tesseract 误识为含「参考市值」「持仓收益」字样的伪标签行。）
+    const prevLine = lines[i - 1] ?? '';
+    const nextLine = lines[i + 1] ?? '';
+    if (
+      contextNoiseRe.test(prevLine) ||
+      contextNoiseRe.test(lines[i]) ||
+      contextNoiseRe.test(nextLine)
+    ) {
+      continue;
+    }
 
     // 数字行 = 标签行的下一行
     const numLine = lines[i + 1];
@@ -744,7 +761,17 @@ export function parseBocWealthOcrText(text: string): WealthOcrParseResult {
         .replace(/\s+/g, '')
         .trim();
       const chineseCount = (cleaned.match(/[\u4e00-\u9fa5]/g) || []).length;
-      if (chineseCount >= 2) productName = cleaned;
+
+      // 产品名纯度过滤：理财名称以汉字为主，含非汉字字符（<>「"」等乱码）比例过高即为噪声。
+      // 阈值：噪声字符（非汉字/非数字/非常见分隔符）> 50% → 过滤；长度 < 2 也过滤。
+      const noiseChars = (cleaned.match(/[^一-鿿0-9·|｜\-]/g) || []).length;
+      const isNoise =
+        cleaned.length === 0 ||
+        chineseCount < 2 ||
+        productNameNoiseRe.test(nameLine) ||
+        noiseChars / cleaned.length > 0.5;
+
+      if (!isNoise && chineseCount >= 2) productName = cleaned;
     }
 
     if (productName === undefined && marketValue === undefined) continue;
