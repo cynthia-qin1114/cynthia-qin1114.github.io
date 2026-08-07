@@ -198,6 +198,12 @@ export interface WealthItemOcrResult {
   dailyProfitRate?: number;
   holdingProfit?: number;
   holdingProfitRate?: number;
+  /** 持有份额（份）——招行基金「详情页」字段 */
+  shares?: number;
+  /** 成本价 / 成本净值（元/份）——招行基金「详情页」字段 */
+  costPrice?: number;
+  /** 当前净值 / 单位净值（元/份）——招行基金「详情页」字段 */
+  currentPrice?: number;
 }
 
 /** 理财持仓 OCR 解析结果 */
@@ -1155,6 +1161,100 @@ export function parseCmbFundOcrText(text: string): WealthOcrParseResult {
 }
 
 /**
+ * 是否为招商银行「基金详情页」（点进单只基金后的页面）。
+ * 判别特征（避免与列表页混淆，严格按收窄闸门）：
+ *  - 强信号：含「持有份额」（列表页绝无此字段）→ 直接判定详情页；
+ *  - 次信号：含「成本净值」或「当前净值」且同时含 6 位基金代码 → 判定详情页。
+ * 刻意排除「净值估算」与「单位净值」单独作为闸门：二者也可能出现在列表页单只卡片
+ * （如「净值估算 X.XXXX」），若放行会被误判为详情页、改走详情解析器后贪心抓到顶部
+ * 「总金额」、丢失正确的卡片「金额」。
+ * 与列表页 isCmbFundPage 互补：详情页带「持有份额/净值」，列表页只有「金额/收益率」。
+ */
+export function isCmbFundDetailPage(text: string): boolean {
+  const t = normalizeOcrText(text ?? '');
+  // 强信号：持有份额 是详情页独有字段（列表页绝无）
+  if (/持有份额/.test(t)) return true;
+  // 次信号：成本净值/当前净值 + 6 位基金代码；排除「净值估算」「单位净值」误伤列表页
+  if (/(成本净值|当前净值)/.test(t) && /\d{6}/.test(t)) return true;
+  return false;
+}
+
+/**
+ * 解析招商银行「基金详情页」（点进单只基金后的页面）。
+ * 与列表页 parseCmbFundOcrText 不同，详情页含持仓明细：
+ *   持有份额(shares) / 当前净值(currentPrice) / 成本净值(costPrice) / 基金代码 / 基金名称。
+ * 这些字段是 FUND 表单必填/可填项，列表页无法提供，故单列解析。
+ *
+ * 字段提取：
+ *  - 持有份额：持有份额/持仓份额/份额 后金额（单位「份」）
+ *  - 当前净值：当前净值/最新净值/单位净值/净值估算 后净值小数
+ *  - 成本净值：成本净值/持仓成本/成本 后净值小数（与「持仓收益」区分：成本后跟净值小数非金额）
+ *  - 基金代码：复用 (\d{6})
+ *  - 基金名称：含 ETF/联接/基金/指数 主题词且非噪声的中文短语
+ * best-effort 复用金额/昨日/持有收益字段，保持与列表页一致。
+ */
+export function parseCmbFundDetailOcrText(text: string): WealthOcrParseResult {
+  const raw = normalizeOcrText(text ?? '');
+  const lines = raw.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean);
+  const items: WealthItemOcrResult[] = [];
+
+  // 基金代码（6 位），复用通用规则
+  const codeMatch = raw.match(/(\d{6})/);
+  const fundCode = codeMatch ? codeMatch[1] : undefined;
+
+  // 名称：含 ETF/联接/基金/指数 主题词且非噪声/标签行的中文短语
+  const nameRe = /(ETF|联接|基金|主题|指数)/;
+  const nameNoiseRe = /(持有份额|当前净值|成本净值|持仓成本|净值|收益|交易|记录|详情|定投|提醒|推荐|季度|报告|管理|查看|代码)/;
+  let productName: string | undefined;
+  for (const line of lines) {
+    if (nameNoiseRe.test(line)) continue;
+    if (nameRe.test(line)) {
+      const cleaned = line
+        .replace(/「[^」]*」/g, '')
+        .replace(/[＞>]/g, '')
+        .replace(/\b\d{6}\b/g, '')
+        .replace(/\s+/g, '')
+        .trim();
+      if (cleaned.length >= 2) {
+        productName = cleaned;
+        break;
+      }
+    }
+  }
+
+  // 持有份额：单位「份」
+  const shares = matchAmountAfterKeyword(raw, ['持有份额', '持仓份额', '份额']);
+  // 当前净值：净值小数
+  const currentPrice = matchAmountAfterKeyword(raw, [
+    '当前净值', '最新净值', '单位净值', '净值估算',
+  ]);
+  // 成本净值：净值小数（与「持仓收益」区分——成本后跟净值小数，非金额）
+  const costPrice = matchAmountAfterKeyword(raw, ['成本净值', '持仓成本', '成本']);
+
+  // best-effort 复用列表页字段
+  const marketValue = matchAmountAfterKeyword(raw, ['持仓市值', '市值', '金额']);
+  const dailyProfit = matchAmountAfterKeyword(raw, ['昨日收益', '当日收益', '最新收益'], { allowZero: true });
+  const holdingProfit = matchAmountAfterKeyword(raw, ['持有收益', '累计收益', '收益'], { allowZero: true });
+  const holdingProfitRate = matchAmountAfterKeyword(raw, ['持有收益率', '持仓收益率']);
+
+  items.push({
+    productName,
+    institution: undefined,
+    fundCode,
+    marketValue,
+    dailyProfit,
+    dailyProfitRate: undefined,
+    holdingProfit,
+    holdingProfitRate,
+    shares,
+    costPrice,
+    currentPrice,
+  });
+
+  return { items, raw };
+}
+
+/**
  * 基金持仓列表 → 生成多条 FUND 的 CreateInvestmentDTO（挂 accountId）。
  * 供 Bug③ 中信证券 / Bug④ 招商银行 基金列表页使用，经 WealthConfirmDialog 批量确认后写入。
  */
@@ -1175,6 +1275,9 @@ export function toFundPrefills(
       dailyProfitRate: it.dailyProfitRate,
       holdingProfit: it.holdingProfit,
       holdingProfitRate: it.holdingProfitRate,
+      shares: it.shares,
+      costPrice: it.costPrice,
+      currentPrice: it.currentPrice,
     }));
 }
 

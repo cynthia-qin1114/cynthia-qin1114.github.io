@@ -43,6 +43,9 @@ import {
   parseCiticFundOcrText,
   isCmbFundPage,
   parseCmbFundOcrText,
+  // Bug④ 招行基金「详情页」：含 持有份额/当前净值/成本净值，优先于列表页解析
+  isCmbFundDetailPage,
+  parseCmbFundDetailOcrText,
   toFundPrefills,
 } from '../../services/wealthOcrParser';
 import { parseFundOcrText, toInvestmentPrefill } from '../../services/fundOcrParser';
@@ -226,7 +229,16 @@ const WealthSyncOcrButton: React.FC<WealthSyncOcrButtonProps> = ({ accounts, onR
           reset();
           return;
         }
-        // Bug④ 招商银行「基金持仓」页：单只基金卡片
+        // Bug④ 招商银行「基金详情页」：含 持有份额/当前净值/成本净值，
+        // 优先解析（能自动填出份额与净值），失败再回退列表页解析。
+        if (isCmbFundDetailPage(text)) {
+          const parsed = parseCmbFundDetailOcrText(text);
+          const prefills = resolveFundCodesInPrefills(toFundPrefills(parsed, account.id), userFundEntries);
+          onResult({ ocrType: 'FUND', account, prefills, matched: prefills.length > 0, raw: text });
+          reset();
+          return;
+        }
+        // Bug④ 招商银行「基金持仓」列表页：单只基金卡片（仅金额/收益率，无份额/净值）
         // 同样派发 ocrType='FUND'，由 InvestPage/AccountDetailDialog 决定
         // 单支走 InvestmentForm 预填、多支走 WealthConfirmDialog 批量确认。
         if (isCmbFundPage(text)) {

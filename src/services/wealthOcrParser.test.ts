@@ -35,6 +35,9 @@ import {
   parseCiticFundOcrText,
   isCmbFundPage,
   parseCmbFundOcrText,
+  // Bug④ 招行基金「详情页」识别增强
+  isCmbFundDetailPage,
+  parseCmbFundDetailOcrText,
   toFundPrefills,
 } from './wealthOcrParser';
 import {
@@ -754,5 +757,93 @@ describe('parseCmbFundOcrText — 招商银行基金持仓（真实 OCR）', () 
     expect(prefills[0].holdingProfit).toBeCloseTo(-133.2, 2);
     expect(prefills[0].holdingProfitRate).toBeCloseTo(-11.84, 2);
     expect(prefills[0].fundName).toContain('南方有色金属');
+  });
+});
+
+// ==================== Bug④ 招行基金「详情页」识别增强 ====================
+// 合成样本（非真实持仓）：持有份额 / 当前净值 / 成本净值 / 基金代码 / 名称。
+
+const CMB_FUND_DETAIL = [
+  '南方有色金属ETF联接E',
+  '基金代码 123456',
+  '持有份额 1234.56 份',
+  '当前净值 1.2345',
+  '成本净值 1.0987',
+  '持仓市值 1523.45',
+  '昨日收益 12.34',
+  '持有收益 -45.67',
+  '持有收益率 -2.99%',
+].join('\n');
+
+// 列表页变体：单只卡片含「净值估算」+ 6 位代码 + 基金名（无 持有份额/当前净值/成本净值）。
+// 用于守护 isCmbFundDetailPage 不把列表页误判为详情页（否则会贪心抓顶部「总金额」）。
+const CMB_FUND_LIST_WITH_ESTIMATE = [
+  '南方有色金属ETF联接E',
+  '基金代码 123456',
+  '金额 991.80',
+  '净值估算 1.2345',
+  '昨日收益 29.52',
+  '持有收益率 -11.84%',
+].join('\n');
+
+// 列表页变体：单只卡片含「单位净值」+ 6 位代码 + 基金名（无 持有份额/成本净值/当前净值）。
+// 守护「单位净值」单独不作为闸门放行（其也可能出现在列表页卡片）。
+const CMB_FUND_LIST_WITH_UNIT_NAV = [
+  '南方有色金属ETF联接E',
+  '基金代码 123456',
+  '金额 991.80',
+  '单位净值 1.2345',
+  '昨日收益 29.52',
+  '持有收益率 -11.84%',
+].join('\n');
+
+describe('isCmbFundDetailPage', () => {
+  it('详情页（含持有份额/当前净值 + 代码）命中', () => {
+    expect(isCmbFundDetailPage(CMB_FUND_DETAIL)).toBe(true);
+  });
+  it('列表页（CMB_FUND_HOLDING）不误判为详情页', () => {
+    expect(isCmbFundDetailPage(CMB_FUND_HOLDING)).toBe(false);
+  });
+  it('列表页变体（含「净值估算」+代码，无持有份额/当前净值）不误判为详情页', () => {
+    expect(isCmbFundDetailPage(CMB_FUND_LIST_WITH_ESTIMATE)).toBe(false);
+  });
+  it('列表页变体（含「单位净值」+代码，无持有份额/当前净值/成本净值）不误判为详情页', () => {
+    expect(isCmbFundDetailPage(CMB_FUND_LIST_WITH_UNIT_NAV)).toBe(false);
+  });
+});
+
+describe('parseCmbFundDetailOcrText — 招行基金详情页', () => {
+  it('识别 持有份额 / 当前净值 / 成本净值 / 代码 / 名称', () => {
+    const r = parseCmbFundDetailOcrText(CMB_FUND_DETAIL);
+    expect(r.items.length).toBe(1);
+    const it = r.items[0];
+    expect(it.fundCode).toBe('123456');
+    expect(it.productName).toContain('南方有色金属');
+    expect(it.productName).toContain('ETF联接E');
+    expect(it.shares).toBeCloseTo(1234.56, 2);
+    expect(it.currentPrice).toBeCloseTo(1.2345, 4);
+    expect(it.costPrice).toBeCloseTo(1.0987, 4);
+  });
+
+  it('best-effort 金额/收益字段仍可用', () => {
+    const r = parseCmbFundDetailOcrText(CMB_FUND_DETAIL);
+    const it = r.items[0];
+    expect(it.marketValue).toBeCloseTo(1523.45, 2);
+    expect(it.dailyProfit).toBeCloseTo(12.34, 2);
+    expect(it.holdingProfit).toBeCloseTo(-45.67, 2);
+    expect(it.holdingProfitRate).toBeCloseTo(-2.99, 2);
+  });
+});
+
+describe('toFundPrefills — 详情页 shares/costPrice/currentPrice 映射', () => {
+  it('将详情页三字段透传到 FUND DTO', () => {
+    const r = parseCmbFundDetailOcrText(CMB_FUND_DETAIL);
+    const prefills = toFundPrefills(r, 'acc_cmb_fund');
+    expect(prefills.length).toBe(1);
+    expect(prefills[0].holdingType).toBe(HoldingType.FUND);
+    expect(prefills[0].fundCode).toBe('123456');
+    expect(prefills[0].shares).toBeCloseTo(1234.56, 2);
+    expect(prefills[0].costPrice).toBeCloseTo(1.0987, 4);
+    expect(prefills[0].currentPrice).toBeCloseTo(1.2345, 4);
   });
 });
