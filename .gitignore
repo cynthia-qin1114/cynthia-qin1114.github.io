@@ -43,3 +43,6 @@ vite.config.d.ts
 
 # reserved-name stray file (Windows NUL device name) — cannot be tracked/deleted via Win32
 /nul
+
+# vitest temp config
+vitest.config.ts.timestamp-*.mjs

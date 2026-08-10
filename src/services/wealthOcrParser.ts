@@ -564,19 +564,29 @@ export function toAlipayTotalAssetsPrefills(
  * 关键坑（OCR 残缺兜底）：Tesseract 识别支付宝红字小字号「持有收益 +200.62」时，
  * 经常将「持有收益」四字识别为「持有 收益」/「持 有 收益」/漏字。一旦 6 条里
  * 「持有收益」只识别出 0-1 个，原 ≥ 2 阈值会直接判否，导致整页走错解析器。
- * 现放宽为：主判据「持有收益 ≥ 1」+ 兜底「(金额 / 昨日收益 / 持有收益/持有) 三个短词至少 2 个」。
+ * 现放宽为：主判据「持有收益 ≥ 1（含 OCR 残缺近似形态）」+ 兜底「(金额 / 昨日 / 持有 / 收益率) 四个短词至少 2 个」。
  */
 export function isAlipayAdvancedFundPage(text: string): boolean {
   const t = normalizeOcrText(text ?? '');
   if (!/进阶理财/.test(t)) return false;
-  // 主判据：识别到 ≥ 1 个「持有收益」
-  const holdProfitCount = (t.match(/持有收益/g) || []).length;
+  // 主判据：识别到 ≥ 1 个「持有收益」任意 OCR 残缺形态
+  // （归一后紧凑形态「持有收益」「持有收益率」，以及更残缺的带空格近似形态
+  // 「持有 收益」「持 有 收益」「持有收 益」—— normalizeOcrText 已去掉汉字间空格，
+  // 这里再显式兜底更极端未归一场景）。
+  const holdProfitCount =
+    (t.match(/持有收益/g) || []).length +
+    (t.match(/持有收益率/g) || []).length +
+    (t.match(/持有\s*收益/g) || []).length +
+    (t.match(/持\s*有\s*收益/g) || []).length +
+    (t.match(/持有\s*收\s*益/g) || []).length;
   if (holdProfitCount >= 1) return true;
-  // 兜底：金额/昨日/持有 三个短词/标签中至少出现 2 个
+  // 兜底：金额/昨日/持有/收益率 四个短词/标签中至少出现 2 个
+  // （「持有收益」整词被吞时，靠 金额 + 昨日/收益率 等组合仍判真）
   const hitCount =
     Number(/(金额)/.test(t)) +
     Number(/(昨日|昨日收益)/.test(t)) +
-    Number(/(持有|持有收益|持有收益率)/.test(t));
+    Number(/(持有|持有收益|持有收益率)/.test(t)) +
+    Number(/(收益率)/.test(t));
   return hitCount >= 2;
 }
 
@@ -589,9 +599,14 @@ export function isAlipayAdvancedFundPage(text: string): boolean {
  * 逐支提取：产品名、金额(marketValue)、昨日收益(dailyProfit)、持有收益(holdingProfit)。
  *
  * 关键坑（OCR 残缺兜底）：Tesseract 识别支付宝红字小字号「持有收益 +200.62」时
- * 经常将「持有收益」识别为「持有 收益」/「持 有 收益」/漏字。本解析器：
+ * 经常将「持有收益」识别为「持有 收益」/「持 有 收益」/漏字；新版截图更常见：
+ * **「金额 昨日收益 持有收益」标签独占一行、数字在下一行**（标签与数字分离）。
+ * 本解析器：
  *  1. metricRe 触发词除完整标签外，加「持有」「昨日」短词以应对 OCR 残缺。
  *  2. 三个标签都未识别时，按"行内 ≥ 2 个数字 → 金额/昨日/持有顺序兜底"。
+ *  3. 仅当本行确实提取到「金额」或「持有收益」时才产出一条并清空 pendingName；
+ *     若本行只是「纯标签行」（含 金额/昨日/持有 关键词但没有数字，数字在下一行），
+ *     则不产出、也不清空 pendingName，避免把上一行的基金名吞掉。
  */
 export function parseAlipayAdvancedFundOcrText(text: string): WealthOcrParseResult {
   const raw = normalizeOcrText(text ?? '');
@@ -612,8 +627,11 @@ export function parseAlipayAdvancedFundOcrText(text: string): WealthOcrParseResu
     // 标题/页眉：跳过（进阶理财 标题在此被吞，不影响持仓名累计）
     if (headerRe.test(line) && !metricRe.test(line) && !numericLineRe.test(line)) continue;
 
+    const isMetricLine = metricRe.test(line);
+    const isNumericLine = numericLineRe.test(line);
+
     // 指标行（含标签）或纯数字行（标签全被 OCR 吞了）：都尝试提取金额/昨日/持有
-    if (metricRe.test(line) || numericLineRe.test(line)) {
+    if (isMetricLine || isNumericLine) {
       let marketValue = matchAmountAfterKeyword(line, ['金额']);
       let dailyProfit = matchAmountAfterKeyword(line, ['昨日收益', '昨日']);
       let holdingProfit = matchAmountAfterKeyword(line, ['持有收益', '持有']);
@@ -633,6 +651,9 @@ export function parseAlipayAdvancedFundOcrText(text: string): WealthOcrParseResu
         }
       }
 
+      // 仅当本行确实提取到「金额」或「持有收益」时才产出一条并清空 pendingName；
+      // 若本行只是「纯标签行」（含 金额/昨日/持有 关键词但没有数字，数字在下一行），
+      // 则不产出、也不清空 pendingName，避免把上一行的基金名吞掉（新样本 OCR 常见）。
       if (marketValue !== undefined || holdingProfit !== undefined) {
         items.push({
           productName: pendingName || undefined,
@@ -641,22 +662,22 @@ export function parseAlipayAdvancedFundOcrText(text: string): WealthOcrParseResu
           dailyProfit,
           holdingProfit,
         });
+        pendingName = '';
       }
-      pendingName = '';
       continue;
     }
 
     // 候选名称行：清洗货币金额（仅含小数点的金额，避免误删「纳斯达克100指数」中的 100）/
-    // 括号/标签后仍有中文，则累计为持仓名（支持跨行名称拼接）
+    // 保留括号(QDII)与英文/数字(100/C/ETF)，仅剥离「基金」「定投」标签后仍有中文，
+    // 则累计为持仓名（支持跨行名称拼接）。
     const cleaned = line
       .replace(/[+\-－—＝=]?\s*[¥￥]?\s*[0-9][0-9,]*\.[0-9]+\s*(?:万元|万)?%?/g, '')
-      .replace(/[（）()]/g, '')
       .replace(/\s+/g, '')
       .trim();
     const strippedTag = cleaned.replace(/基金|定投/g, '');
     const chineseCount = (strippedTag.match(/[\u4e00-\u9fa5]/g) || []).length;
     if (chineseCount >= 3) {
-      pendingName = pendingName ? pendingName + cleaned : cleaned;
+      pendingName = pendingName ? pendingName + strippedTag : strippedTag;
     }
   }
 
@@ -1081,11 +1102,14 @@ export function parseCiticFundOcrText(text: string): WealthOcrParseResult {
  */
 export function isCmbFundPage(text: string): boolean {
   const t = normalizeOcrText(text ?? '');
+  // 必须有「基金」与「金额」才可能是招行基金页
   if (!/基金/.test(t)) return false;
-  if (!/总金额/.test(t)) return false;
   if (!/金额/.test(t)) return false;
-  if (!/昨日收益/.test(t)) return false;
-  return /持有收益率|持仓收益率/.test(t);
+  // 汇总行：顶部「总金额」或基金总览页常用的「持仓市值 / 基金市值 / 总市值」
+  if (!/总金额|总市值|基金市值|持仓市值|基金总市值|持仓总市值/.test(t)) return false;
+  // 收益标识：昨日收益 / 持有收益率 / 收益率 / 日涨跌幅 任一即可（覆盖总览页不同叫法）
+  if (!/昨日收益|日收益|当日收益|最新收益|持有收益率|持仓收益率|收益率|日涨跌幅|涨跌率/.test(t)) return false;
+  return true;
 }
 
 /**
@@ -1222,28 +1246,45 @@ export function parseCmbFundDetailOcrText(text: string): WealthOcrParseResult {
     }
   }
 
-  // 持有份额：单位「份」
-  const shares = matchAmountAfterKeyword(raw, ['持有份额', '持仓份额', '份额']);
-  // 当前净值：净值小数
+  // 持有份额：单位「份」（覆盖 持有份额 / 持仓份额 / 份额 / 持有份数）
+  const shares = matchAmountAfterKeyword(raw, ['持有份额', '持仓份额', '持有份数', '份额']);
+  // 当前净值：净值小数（覆盖 当前/最新/单位/估算/基金净值）
   const currentPrice = matchAmountAfterKeyword(raw, [
-    '当前净值', '最新净值', '单位净值', '净值估算',
+    '当前净值', '最新净值', '单位净值', '净值估算', '基金净值', '净值',
   ]);
   // 成本净值：净值小数（与「持仓收益」区分——成本后跟净值小数，非金额）
-  const costPrice = matchAmountAfterKeyword(raw, ['成本净值', '持仓成本', '成本']);
+  const costPrice = matchAmountAfterKeyword(raw, ['成本净值', '持仓成本', '买入净值', '平均成本', '成本']);
 
-  // best-effort 复用列表页字段
-  const marketValue = matchAmountAfterKeyword(raw, ['持仓市值', '市值', '金额']);
-  const dailyProfit = matchAmountAfterKeyword(raw, ['昨日收益', '当日收益', '最新收益'], { allowZero: true });
-  const holdingProfit = matchAmountAfterKeyword(raw, ['持有收益', '累计收益', '收益'], { allowZero: true });
-  const holdingProfitRate = matchAmountAfterKeyword(raw, ['持有收益率', '持仓收益率']);
+  // best-effort 复用列表页字段（覆盖总览/详情多种叫法）
+  const marketValue = matchAmountAfterKeyword(raw, [
+    '持仓市值', '持仓总市值', '最新市值', '基金市值', '市值', '金额', '总市值',
+  ]);
+  const dailyProfit = matchAmountAfterKeyword(raw, [
+    '昨日收益', '当日收益', '最新收益', '日收益', '昨日盈亏', '当日盈亏',
+  ], { allowZero: true });
+  const holdingProfit = matchAmountAfterKeyword(raw, [
+    '持有收益', '累计收益', '累计盈亏', '持仓盈亏', '盈亏', '收益',
+  ], { allowZero: true });
+  const holdingProfitRate = matchAmountAfterKeyword(raw, [
+    '持有收益率', '持仓收益率', '收益率',
+  ]);
+  const dailyProfitRate = matchAmountAfterKeyword(raw, [
+    '日涨跌幅', '日涨幅', '当日收益率', '日收益率',
+  ]);
+
+  // 兜底：若连市值都拿不到，但页面有「总金额」汇总行（详情页偶尔把市值标成总金额），取之
+  const marketValueFallback =
+    marketValue === undefined
+      ? matchAmountAfterKeyword(raw, ['总金额'])
+      : undefined;
 
   items.push({
     productName,
     institution: undefined,
     fundCode,
-    marketValue,
+    marketValue: marketValue ?? marketValueFallback,
     dailyProfit,
-    dailyProfitRate: undefined,
+    dailyProfitRate,
     holdingProfit,
     holdingProfitRate,
     shares,

@@ -51,6 +51,8 @@ import {
   CITIC_MY_ASSETS,
   CITIC_FUND_LIST,
   CMB_FUND_HOLDING,
+  CMB_FUND_OVERVIEW,
+  CMB_FUND_DETAIL_REALISTIC,
 } from './__fixtures__/realOcrSamples';
 import { HoldingType } from '../types';
 
@@ -845,5 +847,47 @@ describe('toFundPrefills — 详情页 shares/costPrice/currentPrice 映射', ()
     expect(prefills[0].shares).toBeCloseTo(1234.56, 2);
     expect(prefills[0].costPrice).toBeCloseTo(1.0987, 4);
     expect(prefills[0].currentPrice).toBeCloseTo(1.2345, 4);
+  });
+});
+
+// ==================== 招行基金总览页（无「总金额」汇总行） ====================
+describe('isCmbFundPage — 基金总览页（持仓市值+收益率，无总金额）', () => {
+  it('总览页命中（放宽汇总行/收益率叫法）', () => {
+    expect(isCmbFundPage(CMB_FUND_OVERVIEW)).toBe(true);
+  });
+  it('仍不误判支付宝/中信/中行同类页', () => {
+    expect(isCmbFundPage(ALIPAY_FUND_LIST)).toBe(false);
+    expect(isCmbFundPage(CITIC_FUND_LIST)).toBe(false);
+    expect(isCmbFundPage(BOC_ASSET_MANAGE)).toBe(false);
+  });
+  it('总览页逐支解析出市值', () => {
+    const r = parseCmbFundOcrText(CMB_FUND_OVERVIEW);
+    expect(r.items.length).toBe(2);
+    const names = r.items.map((i) => i.productName).join(',');
+    expect(names).toContain('南方有色金属');
+    expect(names).toContain('示例中证军工');
+    expect(r.items[0].marketValue).toBeCloseTo(1000, 2);
+    expect(r.items[1].marketValue).toBeCloseTo(2000, 2);
+  });
+});
+
+// ==================== 招行基金详情页（真实 OCR 空格风格） ====================
+describe('parseCmbFundDetailOcrText — 真实 OCR 空格版（守护放宽标签）', () => {
+  it('isCmbFundDetailPage 命中空格版', () => {
+    expect(isCmbFundDetailPage(CMB_FUND_DETAIL_REALISTIC)).toBe(true);
+  });
+  it('空格版完整提取 份额/净值/市值/收益', () => {
+    const r = parseCmbFundDetailOcrText(CMB_FUND_DETAIL_REALISTIC);
+    expect(r.items.length).toBe(1);
+    const it = r.items[0];
+    expect(it.fundCode).toBe('010990');
+    expect(it.productName).toContain('南方有色金属');
+    expect(it.shares).toBeCloseTo(1234.56, 2);
+    expect(it.currentPrice).toBeCloseTo(1.2345, 4);
+    expect(it.costPrice).toBeCloseTo(1.0987, 4);
+    expect(it.marketValue).toBeCloseTo(1523.45, 2);
+    expect(it.dailyProfit).toBeCloseTo(12.34, 2);
+    expect(it.holdingProfit).toBeCloseTo(-45.67, 2);
+    expect(it.holdingProfitRate).toBeCloseTo(-2.99, 2);
   });
 });
