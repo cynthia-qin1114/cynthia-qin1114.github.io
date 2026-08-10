@@ -583,7 +583,7 @@ export function isAlipayAdvancedFundPage(text: string): boolean {
 /**
  * 解析支付宝「进阶理财」基金持仓列表页。
  * 结构（每支基金）：
- *   [名称行]  建信纳斯达克100指数(QDII)A        ← 产品名（可含 (QDII)/ETF，可能跨行）
+ *   [名称行]  示例纳斯达克100指数(QDII)A        ← 产品名（可含 (QDII)/ETF，可能跨行）
  *   [标签行]  基金 定投                         ← 噪声，跳过
  *   [指标行]  金额 1,981.17 昨日收益 -7.62 持有收益 +218.69  ← 金额/当日/持有
  * 逐支提取：产品名、金额(marketValue)、昨日收益(dailyProfit)、持有收益(holdingProfit)。

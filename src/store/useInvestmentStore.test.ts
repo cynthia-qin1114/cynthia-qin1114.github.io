@@ -94,7 +94,7 @@ describe('useInvestmentStore.createInvestment — 手动录入应走 upsert（�
     const dto: CreateInvestmentDTO = {
       accountId: acc.id,
       holdingType: HoldingType.FUND,
-      fundName: '建信纳斯达克100指数(QDII)A',
+      fundName: '示例纳斯达克100指数(QDII)A',
       fundCode: '006479',
       shares: 1000,
       costPrice: 1.5,

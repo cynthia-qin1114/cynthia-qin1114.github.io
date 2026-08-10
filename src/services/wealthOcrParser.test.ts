@@ -357,22 +357,22 @@ describe('parseAlipayFundOcrText — 支付宝基金列表（真实 OCR）', () 
     const r = parseAlipayFundOcrText(ALIPAY_FUND_LIST);
     expect(r.items.length).toBe(5);
 
-    // ① 长城短债债券E 市值50,000 当日0 持有0
+    // ① 示例短债债券E 市值50,000 当日0 持有0
     expect(r.items[0].marketValue).toBeCloseTo(50000, 2);
     expect(r.items[0].dailyProfit).toBeCloseTo(0, 2);
 
-    // ② 建信纳斯达克100 市值1,935.32 当日+0.33 持有+192.84 率+11.20%
+    // ② 示例纳斯达克100 市值1,935.32 当日+0.33 持有+192.84 率+11.20%
     expect(r.items[1].marketValue).toBeCloseTo(1935.32, 2);
     expect(r.items[1].dailyProfit).toBeCloseTo(0.33, 2);
     expect(r.items[1].holdingProfit).toBeCloseTo(192.84, 2);
     expect(r.items[1].holdingProfitRate).toBeCloseTo(11.2, 2);
 
-    // ③ 广发中证军工ETF联接C 市值863.25 当日25.91 持有-136.75 率-13.68%
+    // ③ 示例中证军工ETF联接C 市值863.25 当日25.91 持有-136.75 率-13.68%
     expect(r.items[2].marketValue).toBeCloseTo(863.25, 2);
     expect(r.items[2].holdingProfit).toBeCloseTo(-136.75, 2);
     expect(r.items[2].holdingProfitRate).toBeCloseTo(-13.68, 2);
 
-    // ⑤ 嘉实中证稀土ETF联接C 市值182.40 当日+7.46 持有-17.60 率-8.80%
+    // ⑤ 示例中证稀土ETF联接C 市值182.40 当日+7.46 持有-17.60 率-8.80%
     expect(r.items[4].marketValue).toBeCloseTo(182.4, 2);
     expect(r.items[4].dailyProfit).toBeCloseTo(7.46, 2);
     expect(r.items[4].holdingProfit).toBeCloseTo(-17.6, 2);
@@ -454,29 +454,29 @@ describe('parseAlipayAdvancedFundOcrText — 支付宝进阶理财基金列表�
     expect(r.items.length).toBe(6);
   });
 
-  it('① 建信纳斯达克100指数(QDII)A：金额1,981.17 昨日-7.62 持有+218.69', () => {
+  it('① 示例纳斯达克100指数(QDII)A：金额1,981.17 昨日-7.62 持有+218.69', () => {
     const r = parseAlipayAdvancedFundOcrText(ALIPAY_ADVANCED_FUND_LIST);
     const it = r.items[0];
-    expect(it.productName).toContain('建信纳斯达克');
+    expect(it.productName).toContain('示例纳斯达克');
     expect(it.productName).toContain('100指数');
     expect(it.marketValue).toBeCloseTo(1981.17, 2);
     expect(it.dailyProfit).toBeCloseTo(-7.62, 2);
     expect(it.holdingProfit).toBeCloseTo(218.69, 2);
   });
 
-  it('② 广发中证军工ETF联接C：金额871.09 昨日+13.98 持有-128.91', () => {
+  it('② 示例中证军工ETF联接C：金额871.09 昨日+13.98 持有-128.91', () => {
     const r = parseAlipayAdvancedFundOcrText(ALIPAY_ADVANCED_FUND_LIST);
     const it = r.items[1];
-    expect(it.productName).toContain('广发中证军工');
+    expect(it.productName).toContain('示例中证军工');
     expect(it.marketValue).toBeCloseTo(871.09, 2);
     expect(it.dailyProfit).toBeCloseTo(13.98, 2);
     expect(it.holdingProfit).toBeCloseTo(-128.91, 2);
   });
 
-  it('⑥ 华泰柏瑞科创50联接C：金额400.32 昨日-14.67 持有+100.32', () => {
+  it('⑥ 示例科创50联接C：金额400.32 昨日-14.67 持有+100.32', () => {
     const r = parseAlipayAdvancedFundOcrText(ALIPAY_ADVANCED_FUND_LIST);
     const it = r.items[5];
-    expect(it.productName).toContain('华泰柏瑞');
+    expect(it.productName).toContain('示例科创50');
     expect(it.marketValue).toBeCloseTo(400.32, 2);
     expect(it.dailyProfit).toBeCloseTo(-14.67, 2);
     expect(it.holdingProfit).toBeCloseTo(100.32, 2);
@@ -505,9 +505,9 @@ describe('isAlipayAdvancedFundPage — 判别降级', () => {
 
   it('持有收益 = 0 但同时含「金额」+「持有」+「昨日」中至少 2 短词 → true（兜底）', () => {
     const t = `< 进阶 理财 客服
-建 信 纳 斯 达 克 100 指 数 (QDII)A 基 金 定 投
+示 例 纳 斯 达 克 100 指 数 (QDII)A 基 金 定 投
 金 额 1,981.17 昨 日 收 益 -7.62 持 有 收 益 +218.69
-广 发 中 证 军 工 基 金
+示 例 中 证 军 工 基 金
 金 额 871.09 昨 日 -13.98`;
     // 命中「金额」+「昨日」+「持有」三个短词 → 命中数=3 → true
     expect(isAlipayAdvancedFundPage(t)).toBe(true);
@@ -677,10 +677,10 @@ describe('parseCiticFundOcrText — 中信证券公募基金持仓（真实 OCR�
     expect(r.items[1].fundCode).toBe('025857');
   });
 
-  it('① 广发纳指100ETF联接(QDII)：市值1260.79 昨日-6.57 持有+70.79', () => {
+  it('① 示例纳指100ETF联接(QDII)：市值1260.79 昨日-6.57 持有+70.79', () => {
     const r = parseCiticFundOcrText(CITIC_FUND_LIST);
     const it = r.items[0];
-    expect(it.productName).toContain('广发纳指');
+    expect(it.productName).toContain('示例纳指');
     expect(it.productName).toContain('100ETF');
     expect(it.productName).toContain('QDII');
     expect(it.marketValue).toBeCloseTo(1260.79, 2);
@@ -688,10 +688,10 @@ describe('parseCiticFundOcrText — 中信证券公募基金持仓（真实 OCR�
     expect(it.holdingProfit).toBeCloseTo(70.79, 2);
   });
 
-  it('② 华夏中证电网设备主题ETF发起式：市值983.96 昨日+44.07 持有-16.04', () => {
+  it('② 示例中证电网设备主题ETF发起式：市值983.96 昨日+44.07 持有-16.04', () => {
     const r = parseCiticFundOcrText(CITIC_FUND_LIST);
     const it = r.items[1];
-    expect(it.productName).toContain('华夏中证电网');
+    expect(it.productName).toContain('示例中证电网');
     expect(it.marketValue).toBeCloseTo(983.96, 2);
     expect(it.dailyProfit).toBeCloseTo(44.07, 2);
     expect(it.holdingProfit).toBeCloseTo(-16.04, 2);
@@ -733,11 +733,11 @@ describe('parseCmbFundOcrText — 招商银行基金持仓（真实 OCR）', () 
     expect(it.marketValue).not.toBeCloseTo(29.52);
   });
 
-  it('基金名 = 南方有色金属ETF联接E；昨日收益=29.52；持有收益率=-133.20 / -11.84%', () => {
+  it('基金名 = 示例ETF联接基金A；昨日收益=29.52；持有收益率=-133.20 / -11.84%', () => {
     const r = parseCmbFundOcrText(CMB_FUND_HOLDING);
     const it = r.items[0];
-    expect(it.productName).toContain('南方有色金属');
-    expect(it.productName).toContain('ETF联接E');
+    expect(it.productName).toContain('示例ETF');
+    expect(it.productName).toContain('ETF联接');
     // 顶部「总金额 29.52」是昨日收益汇总，不能串到 holdingProfit
     expect(it.dailyProfit).toBeCloseTo(29.52, 2);
     // holdingProfit / holdingProfitRate 必须分别取自「持有收益率 -133.20 / -11.84%」
@@ -756,7 +756,7 @@ describe('parseCmbFundOcrText — 招商银行基金持仓（真实 OCR）', () 
     expect(prefills[0].dailyProfit).toBeCloseTo(29.52, 2);
     expect(prefills[0].holdingProfit).toBeCloseTo(-133.2, 2);
     expect(prefills[0].holdingProfitRate).toBeCloseTo(-11.84, 2);
-    expect(prefills[0].fundName).toContain('南方有色金属');
+    expect(prefills[0].fundName).toContain('示例ETF');
   });
 });
 
@@ -764,7 +764,7 @@ describe('parseCmbFundOcrText — 招商银行基金持仓（真实 OCR）', () 
 // 合成样本（非真实持仓）：持有份额 / 当前净值 / 成本净值 / 基金代码 / 名称。
 
 const CMB_FUND_DETAIL = [
-  '南方有色金属ETF联接E',
+  '示例ETF联接基金A',
   '基金代码 123456',
   '持有份额 1234.56 份',
   '当前净值 1.2345',
@@ -778,7 +778,7 @@ const CMB_FUND_DETAIL = [
 // 列表页变体：单只卡片含「净值估算」+ 6 位代码 + 基金名（无 持有份额/当前净值/成本净值）。
 // 用于守护 isCmbFundDetailPage 不把列表页误判为详情页（否则会贪心抓顶部「总金额」）。
 const CMB_FUND_LIST_WITH_ESTIMATE = [
-  '南方有色金属ETF联接E',
+  '示例ETF联接基金A',
   '基金代码 123456',
   '金额 991.80',
   '净值估算 1.2345',
@@ -789,7 +789,7 @@ const CMB_FUND_LIST_WITH_ESTIMATE = [
 // 列表页变体：单只卡片含「单位净值」+ 6 位代码 + 基金名（无 持有份额/成本净值/当前净值）。
 // 守护「单位净值」单独不作为闸门放行（其也可能出现在列表页卡片）。
 const CMB_FUND_LIST_WITH_UNIT_NAV = [
-  '南方有色金属ETF联接E',
+  '示例ETF联接基金A',
   '基金代码 123456',
   '金额 991.80',
   '单位净值 1.2345',
@@ -818,8 +818,8 @@ describe('parseCmbFundDetailOcrText — 招行基金详情页', () => {
     expect(r.items.length).toBe(1);
     const it = r.items[0];
     expect(it.fundCode).toBe('123456');
-    expect(it.productName).toContain('南方有色金属');
-    expect(it.productName).toContain('ETF联接E');
+    expect(it.productName).toContain('示例ETF');
+    expect(it.productName).toContain('ETF联接');
     expect(it.shares).toBeCloseTo(1234.56, 2);
     expect(it.currentPrice).toBeCloseTo(1.2345, 4);
     expect(it.costPrice).toBeCloseTo(1.0987, 4);
