@@ -733,10 +733,10 @@ describe('parseCmbFundOcrText — 招商银行基金持仓（真实 OCR）', () 
     expect(it.marketValue).not.toBeCloseTo(29.52);
   });
 
-  it('基金名 = 示例ETF联接基金A；昨日收益=29.52；持有收益率=-133.20 / -11.84%', () => {
+  it('基金名 = 南方有色金属ETF联接E；昨日收益=29.52；持有收益率=-133.20 / -11.84%', () => {
     const r = parseCmbFundOcrText(CMB_FUND_HOLDING);
     const it = r.items[0];
-    expect(it.productName).toContain('示例ETF');
+    expect(it.productName).toContain('南方有色金属');
     expect(it.productName).toContain('ETF联接');
     // 顶部「总金额 29.52」是昨日收益汇总，不能串到 holdingProfit
     expect(it.dailyProfit).toBeCloseTo(29.52, 2);
@@ -756,7 +756,7 @@ describe('parseCmbFundOcrText — 招商银行基金持仓（真实 OCR）', () 
     expect(prefills[0].dailyProfit).toBeCloseTo(29.52, 2);
     expect(prefills[0].holdingProfit).toBeCloseTo(-133.2, 2);
     expect(prefills[0].holdingProfitRate).toBeCloseTo(-11.84, 2);
-    expect(prefills[0].fundName).toContain('示例ETF');
+    expect(prefills[0].fundName).toContain('南方有色金属');
   });
 });
 
