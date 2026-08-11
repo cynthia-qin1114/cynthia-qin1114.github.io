@@ -53,6 +53,7 @@ import {
   CMB_FUND_HOLDING,
   CMB_FUND_OVERVIEW,
   CMB_FUND_DETAIL_REALISTIC,
+  CMB_FUND_DETAIL_USER_REPRO,
 } from './__fixtures__/realOcrSamples';
 import { HoldingType } from '../types';
 
@@ -834,6 +835,52 @@ describe('parseCmbFundDetailOcrText — 招行基金详情页', () => {
     expect(it.dailyProfit).toBeCloseTo(12.34, 2);
     expect(it.holdingProfit).toBeCloseTo(-45.67, 2);
     expect(it.holdingProfitRate).toBeCloseTo(-2.99, 2);
+  });
+});
+
+// ==================== 招行基金详情页——用户 2026-08 截图复现 ====================
+// 用户截图：详情页布局为 `<大字号数字> <小字号标签>`（label after number），
+// 与原有 <label> <数字> 不同。原 matchAmountAfterKeyword 只能识别后者，
+// 导致 detail 页只拿到名字+代码，所有金额/daily/holding/rate 都空。
+// 新增 matchAmountBeforeKeyword + matchAmountEitherSide 优先 before 解决。
+describe('parseCmbFundDetailOcrText — 用户 2026-08 截图复现（label-after-number 布局）', () => {
+  it('isCmbFundDetailPage 命中用户布局（含代码 + 收益率）', () => {
+    expect(isCmbFundDetailPage(CMB_FUND_DETAIL_USER_REPRO)).toBe(true);
+  });
+
+  it('完整提取 5 个金额字段（双向匹配）+ 持有天数', () => {
+    const r = parseCmbFundDetailOcrText(CMB_FUND_DETAIL_USER_REPRO);
+    expect(r.items.length).toBe(1);
+    const it = r.items[0];
+    expect(it.fundCode).toBe('010990');
+    // 主金额（市值）：`1,231.21 金额(元)`
+    expect(it.marketValue).toBeCloseTo(1231.21, 2);
+    // 昨日收益：`0.00 昨日收益`
+    expect(it.dailyProfit).toBeCloseTo(0.0, 2);
+    // 持仓收益：`-38.79 持仓收益` 不能被 `持仓收益率` 的 -3.15% 误中
+    expect(it.holdingProfit).toBeCloseTo(-38.79, 2);
+    // 持仓收益率：`-3.15% 持仓收益率` 自动 ÷ 100
+    expect(it.holdingProfitRate).toBeCloseTo(-0.0315, 4);
+    // 持有天数：`您已持有208天`
+    expect(it.holdingDays).toBe(208);
+  });
+
+  it('产品名末尾脏字「局」被截掉（OCR 误吸「南方基金管理局」为公司尾）', () => {
+    const r = parseCmbFundDetailOcrText(CMB_FUND_DETAIL_USER_REPRO);
+    const name = r.items[0].productName ?? '';
+    expect(name).toMatch(/联接E$/);
+    expect(name).not.toMatch(/局$/);
+    expect(name).toContain('南方有色金属');
+  });
+
+  it('toFundPrefills 输出 1 条并透传关键字段', () => {
+    const r = parseCmbFundDetailOcrText(CMB_FUND_DETAIL_USER_REPRO);
+    const prefills = toFundPrefills(r, 'acc_cmb_fund');
+    expect(prefills.length).toBe(1);
+    expect(prefills[0].fundCode).toBe('010990');
+    expect(prefills[0].marketValue).toBeCloseTo(1231.21, 2);
+    expect(prefills[0].holdingProfit).toBeCloseTo(-38.79, 2);
+    expect(prefills[0].holdingProfitRate).toBeCloseTo(-0.0315, 4);
   });
 });
 

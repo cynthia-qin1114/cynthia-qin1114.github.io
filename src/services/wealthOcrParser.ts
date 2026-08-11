@@ -70,6 +70,53 @@ function matchAmountAfterKeyword(
   return undefined;
 }
 
+/**
+ * 反向：在 <keyword> 之前匹配数字（用于详情页/卡片式布局：`<number> 持仓收益`）。
+ * 行级匹配：每行独立匹配（不跨行），避免把"代码 XXXX\n标签 Y"误为 "<num> 标签 Y"。
+ * 支持百分比捕获：`-3.15% 持仓收益率` → -0.0315（除 100）。
+ * 为避免 `收益` 子串误中 `持仓收益率/-3.15%`，关键词后必须紧接非中文字符（边界断言）。
+ */
+function matchAmountBeforeKeyword(
+  text: string,
+  keywords: string[],
+  opts?: { max?: number; allowZero?: boolean; asPercentage?: boolean },
+): number | undefined {
+  const lines = text.split(/[\r\n]+/);
+  for (const kw of keywords) {
+    // (?<![\d,]) 避免在"010990123.5 持仓收益"中错误地起匹配，但允许前缀符号
+    const pattern = new RegExp(
+      `(?<![\\d,])([+\\-－—]?\\s*[¥￥]?\\s*\\d[\\d,]*(?:\\.\\d+)?)\\s*(%)?\\s*${kw}(?![一-鿿0-9])`,
+    );
+    for (const line of lines) {
+      const m = line.match(pattern);
+      if (!m) continue;
+      let raw = parseCnyAmount(m[1]);
+      if (raw === undefined || isNaN(raw)) continue;
+      if (!opts?.allowZero && raw === 0) continue;
+      if (opts?.max !== undefined && Math.abs(raw) > opts.max) continue;
+      if (m[2] === '%' || opts?.asPercentage) raw = raw / 100;
+      return raw;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * 同时尝试 before + after 两种布局（详情页 label-after-number 与列表页 label-before-number）。
+ * 默认 before 优先（详情页/卡片式更常用）；可选 prefer='after' 反转。
+ */
+function matchAmountEitherSide(
+  text: string,
+  keywords: string[],
+  opts?: { max?: number; allowZero?: boolean; asPercentage?: boolean; prefer?: 'before' | 'after' },
+): number | undefined {
+  if (opts?.prefer !== 'after') {
+    const before = matchAmountBeforeKeyword(text, keywords, opts);
+    if (before !== undefined) return before;
+  }
+  return matchAmountAfterKeyword(text, keywords, opts);
+}
+
 // ==================== 资产分布解析器（图1） ====================
 
 /** 资产分布 OCR 解析结果 */
@@ -204,6 +251,8 @@ export interface WealthItemOcrResult {
   costPrice?: number;
   /** 当前净值 / 单位净值（元/份）——招行基金「详情页」字段 */
   currentPrice?: number;
+  /** 持有天数——招行基金「详情页」「您已持有 208 天」提取（OCR 形态调试可保留） */
+  holdingDays?: number;
 }
 
 /** 理财持仓 OCR 解析结果 */
@@ -1200,6 +1249,12 @@ export function isCmbFundDetailPage(text: string): boolean {
   if (/持有份额/.test(t)) return true;
   // 次信号：成本净值/当前净值 + 6 位基金代码；排除「净值估算」「单位净值」误伤列表页
   if (/(成本净值|当前净值)/.test(t) && /\d{6}/.test(t)) return true;
+  // 兜底：详情页布局（大字号金额 + 小字号标签）的独有信号——同时出现「持仓收益」/「持仓收益率」
+  //   与 6 位产品代码 + 持有天数，任一足以触发（覆盖没显示持有份额的纯净值详情页）
+  const hasHoldingPair = /持仓收益/.test(t) && /\d{6}/.test(t);
+  if (hasHoldingPair) return true;
+  const hasHoldingDays = /(?:已持有|持有|持有时间)\s*\d+\s*(天|日|个月)/.test(t);
+  if (hasHoldingDays && /\d{6}/.test(t)) return true;
   return false;
 }
 
@@ -1227,18 +1282,22 @@ export function parseCmbFundDetailOcrText(text: string): WealthOcrParseResult {
   const fundCode = codeMatch ? codeMatch[1] : undefined;
 
   // 名称：含 ETF/联接/基金/指数 主题词且非噪声/标签行的中文短语
+  // 关键坑：详情页底部常混入「XX 基金管理 XX 局」等公司尾缀被 OCR 错误吸进产品名（如「南方有色金属ETF联接E局」）。
+  //   用宽集噪声正则（公司/局/院/部/中心/有限/管理/已/部分…）兜底截断。
   const nameRe = /(ETF|联接|基金|主题|指数)/;
   const nameNoiseRe = /(持有份额|当前净值|成本净值|持仓成本|净值|收益|交易|记录|详情|定投|提醒|推荐|季度|报告|管理|查看|代码)/;
   let productName: string | undefined;
   for (const line of lines) {
     if (nameNoiseRe.test(line)) continue;
     if (nameRe.test(line)) {
-      const cleaned = line
+      let cleaned = line
         .replace(/「[^」]*」/g, '')
         .replace(/[＞>]/g, '')
         .replace(/\b\d{6}\b/g, '')
         .replace(/\s+/g, '')
         .trim();
+      // 末尾混入的脏词截断（公司尾缀/部门/部分等误识别粘连）：以常见脏词锚点切割
+      cleaned = cleaned.replace(/(公司|管理|有限|局|院|中心|部|部分|所有|其)$/g, '').trim();
       if (cleaned.length >= 2) {
         productName = cleaned;
         break;
@@ -1246,36 +1305,50 @@ export function parseCmbFundDetailOcrText(text: string): WealthOcrParseResult {
     }
   }
 
+  // 详情页布局多为「大字号金额 + 小字号标签」（例如 `1,231.21 金额(元)` / `-38.79 持仓收益`），
+  // 列表页布局多为「标签 + 金额」（例如 `金额 991.80`）。双向匹配保证兼容两种。
   // 持有份额：单位「份」（覆盖 持有份额 / 持仓份额 / 份额 / 持有份数）
-  const shares = matchAmountAfterKeyword(raw, ['持有份额', '持仓份额', '持有份数', '份额']);
-  // 当前净值：净值小数（覆盖 当前/最新/单位/估算/基金净值）
-  const currentPrice = matchAmountAfterKeyword(raw, [
+  const shares = matchAmountEitherSide(raw, ['持有份额', '持仓份额', '持有份数', '份额']);
+  // 当前净值：净值小数（覆盖 当前/最新/单位/估算/基金净值/净值）
+  const currentPrice = matchAmountEitherSide(raw, [
     '当前净值', '最新净值', '单位净值', '净值估算', '基金净值', '净值',
   ]);
-  // 成本净值：净值小数（与「持仓收益」区分——成本后跟净值小数，非金额）
-  const costPrice = matchAmountAfterKeyword(raw, ['成本净值', '持仓成本', '买入净值', '平均成本', '成本']);
+  // 成本净值：净值小数
+  const costPrice = matchAmountEitherSide(raw, [
+    '成本净值', '持仓成本', '买入净值', '平均成本', '成本',
+  ]);
 
-  // best-effort 复用列表页字段（覆盖总览/详情多种叫法）
-  const marketValue = matchAmountAfterKeyword(raw, [
+  // best-effort 复用列表页字段（覆盖总览/详情多种叫法），双向匹配优先 before（详情页 label-after-number）
+  const marketValue = matchAmountEitherSide(raw, [
     '持仓市值', '持仓总市值', '最新市值', '基金市值', '市值', '金额', '总市值',
-  ]);
-  const dailyProfit = matchAmountAfterKeyword(raw, [
+  ], { prefer: 'before' });
+  const dailyProfit = matchAmountEitherSide(raw, [
     '昨日收益', '当日收益', '最新收益', '日收益', '昨日盈亏', '当日盈亏',
-  ], { allowZero: true });
-  const holdingProfit = matchAmountAfterKeyword(raw, [
-    '持有收益', '累计收益', '累计盈亏', '持仓盈亏', '盈亏', '收益',
-  ], { allowZero: true });
-  const holdingProfitRate = matchAmountAfterKeyword(raw, [
+  ], { allowZero: true, prefer: 'before' });
+  const holdingProfit = matchAmountEitherSide(raw, [
+    '持有收益', '持仓收益', '累计收益', '累计盈亏', '持仓盈亏', '盈亏', '收益',
+  ], { allowZero: true, prefer: 'before' });
+  // 收益率：捕获百分比，自动 ÷ 100 转小数（如 `-3.15%` → -0.0315）
+  const holdingProfitRate = matchAmountEitherSide(raw, [
     '持有收益率', '持仓收益率', '收益率',
-  ]);
-  const dailyProfitRate = matchAmountAfterKeyword(raw, [
+  ], { asPercentage: true, prefer: 'before' });
+  const dailyProfitRate = matchAmountEitherSide(raw, [
     '日涨跌幅', '日涨幅', '当日收益率', '日收益率',
-  ]);
+  ], { asPercentage: true, prefer: 'before' });
+
+  // 持有天数（详情页独有信号：「您已持有208天」「持有 6 个月」）
+  const daysMatch = raw.match(/(?:已持有|持有|已持|持有时间|持有天数?)[^0-9]{0,6}(\d+)\s*(天|日|个月|个月|个月)/)
+    ?? raw.match(/(?:已持有|持有)\s*(\d+)\s*(天|日)/);
+  let holdingDays: number | undefined;
+  if (daysMatch) {
+    const n = Number(daysMatch[1]);
+    if (!isNaN(n) && n > 0) holdingDays = n;
+  }
 
   // 兜底：若连市值都拿不到，但页面有「总金额」汇总行（详情页偶尔把市值标成总金额），取之
   const marketValueFallback =
     marketValue === undefined
-      ? matchAmountAfterKeyword(raw, ['总金额'])
+      ? matchAmountEitherSide(raw, ['总金额'], { prefer: 'before' })
       : undefined;
 
   items.push({
@@ -1290,6 +1363,7 @@ export function parseCmbFundDetailOcrText(text: string): WealthOcrParseResult {
     shares,
     costPrice,
     currentPrice,
+    holdingDays,
   });
 
   return { items, raw };
